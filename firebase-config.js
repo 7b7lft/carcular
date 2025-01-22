@@ -9,9 +9,20 @@ const firebaseConfig = {
   measurementId: "G-YBWK7K8L5E"
 };
 
-// Firebase 초기화
-firebase.initializeApp(firebaseConfig);
+// Firebase 초기화 함수
+function initFirebase() {
+    try {
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        window.db = firebase.firestore();
+        console.log('Firebase 초기화 성공');
+        return true;
+    } catch (error) {
+        console.error('Firebase 초기화 오류:', error);
+        return false;
+    }
+}
 
-// Firestore 데이터베이스 참조 생성 및 전역 변수로 내보내기
-const db = firebase.firestore();
-window.db = db;  // 전역 스코프에서 db 사용 가능하도록 설정
+// Firebase 초기화 실행
+initFirebase();
