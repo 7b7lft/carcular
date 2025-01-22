@@ -9,39 +9,34 @@ const firebaseConfig = {
     measurementId: "G-YBWK7K8L5E"
 };
 
-// Firebase 초기화
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-}
-const db = firebase.firestore();
-
 // 전역 변수 선언
 let transactions = [];
 let currentTransactionId = null;
 let receiptModal = null;
 let receiptViewModal = null;
+let db = null;
 
-// Firebase 초기화 확인
-function waitForFirebase() {
-    return new Promise((resolve, reject) => {
-        let attempts = 0;
-        const checkFirebase = setInterval(() => {
-            attempts++;
-            if (window.db) {
-                clearInterval(checkFirebase);
-                resolve(window.db);
-            } else if (attempts > 50) { // 5초 후 타임아웃
-                clearInterval(checkFirebase);
-                reject(new Error('Firebase 초기화 실패'));
-            }
-        }, 100);
-    });
+// Firebase 초기화 함수
+async function initializeFirebase() {
+    try {
+        // Firebase가 이미 초기화되었는지 확인
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        db = firebase.firestore();
+        console.log('Firebase 초기화 성공');
+        return true;
+    } catch (error) {
+        console.error('Firebase 초기화 오류:', error);
+        return false;
+    }
 }
 
 // 애플리케이션 초기화
 async function initializeApp() {
     try {
-        await waitForFirebase();
+        // Firebase 초기화
+        await initializeFirebase();
         
         // Bootstrap 모달 초기화
         const receiptModalEl = document.getElementById('receiptModal');
@@ -55,9 +50,22 @@ async function initializeApp() {
         receiptViewModal = new bootstrap.Modal(receiptViewModalEl);
         
         // 모달 이벤트 리스너 설정
-        setupModalListeners(receiptModalEl, receiptViewModalEl);
-        
-        // 기타 이벤트 리스너 설정
+        receiptModalEl.addEventListener('hidden.bs.modal', function () {
+            const receiptUpdate = document.getElementById('receiptUpdate');
+            if (receiptUpdate) {
+                receiptUpdate.value = '';
+            }
+            currentTransactionId = null;
+        });
+
+        receiptViewModalEl.addEventListener('hidden.bs.modal', function () {
+            const receiptImage = document.getElementById('receiptImage');
+            if (receiptImage) {
+                receiptImage.src = '';
+            }
+        });
+
+        // 이벤트 리스너 설정
         setupEventListeners();
         
         // 초기 데이터 로드
@@ -76,72 +84,56 @@ async function initializeApp() {
     }
 }
 
-// 모달 이벤트 리스너 설정
-function setupModalListeners(receiptModalEl, receiptViewModalEl) {
-    receiptModalEl.addEventListener('hidden.bs.modal', function () {
-        const receiptUpdate = document.getElementById('receiptUpdate');
-        if (receiptUpdate) {
-            receiptUpdate.value = '';
-        }
-        currentTransactionId = null;
-    });
-
-    receiptViewModalEl.addEventListener('hidden.bs.modal', function () {
-        const receiptImage = document.getElementById('receiptImage');
-        if (receiptImage) {
-            receiptImage.src = '';
-        }
-    });
-}
-
-// DOM 로드 완료 시 초기화
-document.addEventListener('DOMContentLoaded', initializeApp);
-
 function setupEventListeners() {
     // 거래 목록 이벤트 위임
-    document.getElementById('transactionList').addEventListener('click', function(e) {
-        if (e.target.classList.contains('receipt-thumbnail')) {
-            viewReceipt(e.target.getAttribute('data-receipt-url'));
-        }
-        if (e.target.classList.contains('add-receipt-btn') || 
-            e.target.closest('.add-receipt-btn')) {
-            const transactionId = e.target.closest('.add-receipt-btn').getAttribute('data-transaction-id');
-            openReceiptModal(transactionId);
-        }
-    });
+    const transactionList = document.getElementById('transactionList');
+    if (transactionList) {
+        transactionList.addEventListener('click', function(e) {
+            if (e.target.classList.contains('receipt-thumbnail')) {
+                viewReceipt(e.target.getAttribute('data-receipt-url'));
+            }
+            if (e.target.classList.contains('add-receipt-btn') || 
+                e.target.closest('.add-receipt-btn')) {
+                const transactionId = e.target.closest('.add-receipt-btn').getAttribute('data-transaction-id');
+                openReceiptModal(transactionId);
+            }
+        });
+    }
 
     // 폼 제출 이벤트
-    document.getElementById('transactionForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        showLoading();
-        
-        const date = document.getElementById('date').value;
-        const description = document.getElementById('description').value;
-        const type = document.getElementById('type').value;
-        const amount = parseFloat(document.getElementById('amount').value);
-        const receiptFile = document.getElementById('receipt').files[0];
-        
-        try {
-            if (receiptFile) {
-                const reader = new FileReader();
-                reader.onload = async function(e) {
-                    await addTransaction(date, description, type, amount, e.target.result);
-                };
-                reader.readAsDataURL(receiptFile);
-            } else {
-                await addTransaction(date, description, type, amount, null);
-            }
+    const transactionForm = document.getElementById('transactionForm');
+    if (transactionForm) {
+        transactionForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            showLoading();
             
-            this.reset();
-            // 현재 날짜를 다시 설정
-            document.getElementById('date').valueAsDate = new Date();
-        } catch (error) {
-            console.error('거래 추가 오류:', error);
-            alert('거래를 추가하는 중 오류가 발생했습니다.');
-        } finally {
-            hideLoading();
-        }
-    });
+            try {
+                const date = document.getElementById('date').value;
+                const description = document.getElementById('description').value;
+                const type = document.getElementById('type').value;
+                const amount = parseFloat(document.getElementById('amount').value);
+                const receiptFile = document.getElementById('receipt').files[0];
+                
+                if (receiptFile) {
+                    const reader = new FileReader();
+                    reader.onload = async function(e) {
+                        await addTransaction(date, description, type, amount, e.target.result);
+                    };
+                    reader.readAsDataURL(receiptFile);
+                } else {
+                    await addTransaction(date, description, type, amount, null);
+                }
+                
+                this.reset();
+                document.getElementById('date').valueAsDate = new Date();
+            } catch (error) {
+                console.error('거래 추가 오류:', error);
+                alert('거래를 추가하는 중 오류가 발생했습니다.');
+            } finally {
+                hideLoading();
+            }
+        });
+    }
 }
 
 async function addTransaction(date, description, type, amount, receiptUrl) {
