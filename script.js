@@ -37,6 +37,32 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
 
+    // Bootstrap 모달 초기화
+    receiptViewModal = new bootstrap.Modal(document.getElementById('receiptViewModal'));
+
+    // 모달 닫기 이벤트 리스너 설정
+    const modalCloseButtons = document.querySelectorAll('[data-bs-dismiss="modal"]');
+    modalCloseButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            receiptViewModal.hide();
+            const receiptImage = document.getElementById('receiptImage');
+            if (receiptImage) {
+                receiptImage.src = '';
+            }
+        });
+    });
+
+    // 모달 배경 클릭 시 닫기
+    document.getElementById('receiptViewModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            receiptViewModal.hide();
+            const receiptImage = document.getElementById('receiptImage');
+            if (receiptImage) {
+                receiptImage.src = '';
+            }
+        }
+    });
+
     // 폼 제출 이벤트 리스너
     const form = document.getElementById('transactionForm');
     if (form) {
@@ -51,9 +77,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 초기 데이터 로드
     loadTransactions();
-
-    // 영수증 뷰어 모달 초기화
-    receiptViewModal = new bootstrap.Modal(document.getElementById('receiptViewModal'));
 });
 
 // 폼 제출 처리
@@ -209,7 +232,7 @@ function hideLoading() {
     }
 }
 
-// 영수증 이미지 보기 함수 추가
+// 영수증 이미지 보기 함수
 function viewReceipt(receiptUrl) {
     const receiptImage = document.getElementById('receiptImage');
     if (receiptImage) {
@@ -217,16 +240,3 @@ function viewReceipt(receiptUrl) {
         receiptViewModal.show();
     }
 }
-
-// 모달 닫을 때 이미지 초기화
-document.addEventListener('DOMContentLoaded', function() {
-    const receiptViewModalEl = document.getElementById('receiptViewModal');
-    if (receiptViewModalEl) {
-        receiptViewModalEl.addEventListener('hidden.bs.modal', function () {
-            const receiptImage = document.getElementById('receiptImage');
-            if (receiptImage) {
-                receiptImage.src = '';
-            }
-        });
-    }
-});
