@@ -113,6 +113,7 @@ button:hover {
 
 #receiptImage {
     max-height: 80vh;
+    max-width: 100%;
 }
 
 .income {
@@ -185,4 +186,8 @@ button:hover {
 
 .loading-spinner.d-none {
     display: none;
+}
+
+.modal-lg {
+    max-width: 90%;
 }
