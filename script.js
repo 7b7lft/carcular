@@ -1,3 +1,21 @@
+// Firebase 설정 및 초기화
+const firebaseConfig = {
+    apiKey: "AIzaSyAI-KtaTqmmxXQm0XRgRu9GIsVmWaJTTDI",
+    authDomain: "carcular-c2b26.firebaseapp.com",
+    projectId: "carcular-c2b26",
+    storageBucket: "carcular-c2b26.firebasestorage.app",
+    messagingSenderId: "159197763518",
+    appId: "1:159197763518:web:599c178c8b25d255e9cbef",
+    measurementId: "G-YBWK7K8L5E"
+};
+
+// Firebase 초기화
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
+const db = firebase.firestore();
+
+// 전역 변수 선언
 let transactions = [];
 let currentTransactionId = null;
 let receiptModal = null;
