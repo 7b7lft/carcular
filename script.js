@@ -15,6 +15,8 @@ let currentTransactionId = null;
 let receiptModal = null;
 let receiptViewModal = null;
 let db = null;
+let editTransactionModal = null;
+let currentEditId = null;
 
 // Firebase 초기화 함수
 function initializeFirebase() {
@@ -74,6 +76,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (dateInput) {
         dateInput.valueAsDate = new Date();
     }
+
+    // 수정 모달 초기화
+    editTransactionModal = new bootstrap.Modal(document.getElementById('editTransactionModal'));
 
     // 초기 데이터 로드
     loadTransactions();
@@ -167,6 +172,7 @@ function displayTransactions() {
                     <th>구분</th>
                     <th>금액</th>
                     <th>영수증</th>
+                    <th>작업</th>
                 </tr>
             </thead>
             <tbody>
@@ -184,9 +190,16 @@ function displayTransactions() {
                         ? `<img src="${transaction.receiptUrl}" 
                              class="receipt-thumbnail" 
                              onclick="viewReceipt('${transaction.receiptUrl}')"
-                             alt="영수증"
-                             style="cursor: pointer;">`
+                             alt="영수증">`
                         : '없음'}
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary me-1" onclick="openEditModal('${transaction.id}')">
+                        수정
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteTransaction('${transaction.id}')">
+                        삭제
+                    </button>
                 </td>
             </tr>
         `;
@@ -238,5 +251,94 @@ function viewReceipt(receiptUrl) {
     if (receiptImage) {
         receiptImage.src = receiptUrl;
         receiptViewModal.show();
+    }
+}
+
+// 수정 모달 열기
+function openEditModal(transactionId) {
+    currentEditId = transactionId;
+    const transaction = transactions.find(t => t.id === transactionId);
+    
+    if (transaction) {
+        document.getElementById('editDate').value = transaction.date;
+        document.getElementById('editDescription').value = transaction.description;
+        document.getElementById('editType').value = transaction.type;
+        document.getElementById('editAmount').value = transaction.amount;
+        
+        editTransactionModal.show();
+    }
+}
+
+// 거래 수정
+async function updateTransaction() {
+    try {
+        showLoading();
+        
+        const date = document.getElementById('editDate').value;
+        const description = document.getElementById('editDescription').value;
+        const type = document.getElementById('editType').value;
+        const amount = parseFloat(document.getElementById('editAmount').value);
+        const receiptFile = document.getElementById('editReceipt').files[0];
+
+        let receiptUrl = null;
+        const transaction = transactions.find(t => t.id === currentEditId);
+        
+        if (receiptFile) {
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                receiptUrl = e.target.result;
+                await updateTransactionData(date, description, type, amount, receiptUrl);
+            };
+            reader.readAsDataURL(receiptFile);
+        } else {
+            // 기존 영수증 유지
+            receiptUrl = transaction ? transaction.receiptUrl : null;
+            await updateTransactionData(date, description, type, amount, receiptUrl);
+        }
+    } catch (error) {
+        console.error('거래 수정 오류:', error);
+        alert('거래를 수정하는 중 오류가 발생했습니다.');
+    } finally {
+        hideLoading();
+    }
+}
+
+// 거래 데이터 업데이트
+async function updateTransactionData(date, description, type, amount, receiptUrl) {
+    try {
+        await db.collection('transactions').doc(currentEditId).update({
+            date,
+            description,
+            type,
+            amount,
+            receiptUrl,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        editTransactionModal.hide();
+        await loadTransactions();
+        alert('거래가 수정되었습니다.');
+    } catch (error) {
+        console.error('데이터 업데이트 오류:', error);
+        throw error;
+    }
+}
+
+// 거래 삭제
+async function deleteTransaction(transactionId) {
+    if (!confirm('정말 이 거래를 삭제하시겠습니까?')) {
+        return;
+    }
+
+    try {
+        showLoading();
+        await db.collection('transactions').doc(transactionId).delete();
+        await loadTransactions();
+        alert('거래가 삭제되었습니다.');
+    } catch (error) {
+        console.error('거래 삭제 오류:', error);
+        alert('거래를 삭제하는 중 오류가 발생했습니다.');
+    } finally {
+        hideLoading();
     }
 }
