@@ -8,6 +8,19 @@ document.addEventListener('DOMContentLoaded', function() {
     receiptModal = new bootstrap.Modal(document.getElementById('receiptModal'));
     receiptViewModal = new bootstrap.Modal(document.getElementById('receiptViewModal'));
     
+    // receiptModal 이벤트 리스너
+    const receiptModalEl = document.getElementById('receiptModal');
+    receiptModalEl.addEventListener('hidden.bs.modal', function () {
+        document.getElementById('receiptUpdate').value = '';
+        currentTransactionId = null;
+    });
+
+    // receiptViewModal 이벤트 리스너
+    const receiptViewModalEl = document.getElementById('receiptViewModal');
+    receiptViewModalEl.addEventListener('hidden.bs.modal', function () {
+        document.getElementById('receiptImage').src = '';
+    });
+
     // 이벤트 리스너 설정
     setupEventListeners();
     
@@ -19,11 +32,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function setupEventListeners() {
-    // 영수증 뷰어 모달 이벤트
-    document.getElementById('receiptViewModal').addEventListener('hidden.bs.modal', function () {
-        document.getElementById('receiptImage').src = '';
-    });
-
     // 거래 목록 이벤트 위임
     document.getElementById('transactionList').addEventListener('click', function(e) {
         if (e.target.classList.contains('receipt-thumbnail')) {
@@ -274,4 +282,3 @@ window.onclick = function(event) {
         receiptModal.hide();
     }
 }
-
