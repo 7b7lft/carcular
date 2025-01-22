@@ -3,32 +3,58 @@ let currentTransactionId = null;
 let receiptModal = null;
 let receiptViewModal = null;
 
-document.addEventListener('DOMContentLoaded', function() {
-    // Bootstrap 모달 초기화
-    receiptModal = new bootstrap.Modal(document.getElementById('receiptModal'));
-    receiptViewModal = new bootstrap.Modal(document.getElementById('receiptViewModal'));
-    
-    // receiptModal 이벤트 리스너
-    const receiptModalEl = document.getElementById('receiptModal');
-    receiptModalEl.addEventListener('hidden.bs.modal', function () {
-        document.getElementById('receiptUpdate').value = '';
-        currentTransactionId = null;
+// Firebase 초기화 확인 및 데이터베이스 참조 가져오기
+function initializeFirebase() {
+    return new Promise((resolve, reject) => {
+        const checkFirebase = setInterval(() => {
+            if (window.db) {
+                clearInterval(checkFirebase);
+                resolve(window.db);
+            }
+        }, 100);
+
+        // 10초 후에도 초기화되지 않으면 에러
+        setTimeout(() => {
+            clearInterval(checkFirebase);
+            reject(new Error('Firebase 초기화 실패'));
+        }, 10000);
     });
+}
 
-    // receiptViewModal 이벤트 리스너
-    const receiptViewModalEl = document.getElementById('receiptViewModal');
-    receiptViewModalEl.addEventListener('hidden.bs.modal', function () {
-        document.getElementById('receiptImage').src = '';
-    });
+document.addEventListener('DOMContentLoaded', async function() {
+    try {
+        // Firebase 초기화 대기
+        await initializeFirebase();
+        
+        // Bootstrap 모달 초기화
+        receiptModal = new bootstrap.Modal(document.getElementById('receiptModal'));
+        receiptViewModal = new bootstrap.Modal(document.getElementById('receiptViewModal'));
+        
+        // receiptModal 이벤트 리스너
+        const receiptModalEl = document.getElementById('receiptModal');
+        receiptModalEl.addEventListener('hidden.bs.modal', function () {
+            document.getElementById('receiptUpdate').value = '';
+            currentTransactionId = null;
+        });
 
-    // 이벤트 리스너 설정
-    setupEventListeners();
-    
-    // 초기 데이터 로드
-    loadTransactions();
+        // receiptViewModal 이벤트 리스너
+        const receiptViewModalEl = document.getElementById('receiptViewModal');
+        receiptViewModalEl.addEventListener('hidden.bs.modal', function () {
+            document.getElementById('receiptImage').src = '';
+        });
 
-    // 현재 날짜를 기본값으로 설정
-    document.getElementById('date').valueAsDate = new Date();
+        // 이벤트 리스너 설정
+        setupEventListeners();
+        
+        // 초기 데이터 로드
+        await loadTransactions();
+
+        // 현재 날짜를 기본값으로 설정
+        document.getElementById('date').valueAsDate = new Date();
+    } catch (error) {
+        console.error('초기화 오류:', error);
+        alert('애플리케이션 초기화 중 오류가 발생했습니다.');
+    }
 });
 
 function setupEventListeners() {
