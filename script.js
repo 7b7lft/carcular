@@ -3,59 +3,81 @@ let currentTransactionId = null;
 let receiptModal = null;
 let receiptViewModal = null;
 
-// Firebase 초기화 확인 및 데이터베이스 참조 가져오기
-function initializeFirebase() {
+// Firebase 초기화 확인
+function waitForFirebase() {
     return new Promise((resolve, reject) => {
+        let attempts = 0;
         const checkFirebase = setInterval(() => {
+            attempts++;
             if (window.db) {
                 clearInterval(checkFirebase);
                 resolve(window.db);
+            } else if (attempts > 50) { // 5초 후 타임아웃
+                clearInterval(checkFirebase);
+                reject(new Error('Firebase 초기화 실패'));
             }
         }, 100);
-
-        // 10초 후에도 초기화되지 않으면 에러
-        setTimeout(() => {
-            clearInterval(checkFirebase);
-            reject(new Error('Firebase 초기화 실패'));
-        }, 10000);
     });
 }
 
-document.addEventListener('DOMContentLoaded', async function() {
+// 애플리케이션 초기화
+async function initializeApp() {
     try {
-        // Firebase 초기화 대기
-        await initializeFirebase();
+        await waitForFirebase();
         
         // Bootstrap 모달 초기화
-        receiptModal = new bootstrap.Modal(document.getElementById('receiptModal'));
-        receiptViewModal = new bootstrap.Modal(document.getElementById('receiptViewModal'));
-        
-        // receiptModal 이벤트 리스너
         const receiptModalEl = document.getElementById('receiptModal');
-        receiptModalEl.addEventListener('hidden.bs.modal', function () {
-            document.getElementById('receiptUpdate').value = '';
-            currentTransactionId = null;
-        });
-
-        // receiptViewModal 이벤트 리스너
         const receiptViewModalEl = document.getElementById('receiptViewModal');
-        receiptViewModalEl.addEventListener('hidden.bs.modal', function () {
-            document.getElementById('receiptImage').src = '';
-        });
+        
+        if (!receiptModalEl || !receiptViewModalEl) {
+            throw new Error('모달 요소를 찾을 수 없습니다.');
+        }
 
-        // 이벤트 리스너 설정
+        receiptModal = new bootstrap.Modal(receiptModalEl);
+        receiptViewModal = new bootstrap.Modal(receiptViewModalEl);
+        
+        // 모달 이벤트 리스너 설정
+        setupModalListeners(receiptModalEl, receiptViewModalEl);
+        
+        // 기타 이벤트 리스너 설정
         setupEventListeners();
         
         // 초기 데이터 로드
         await loadTransactions();
+        
+        // 현재 날짜 설정
+        const dateInput = document.getElementById('date');
+        if (dateInput) {
+            dateInput.valueAsDate = new Date();
+        }
 
-        // 현재 날짜를 기본값으로 설정
-        document.getElementById('date').valueAsDate = new Date();
+        console.log('애플리케이션 초기화 완료');
     } catch (error) {
         console.error('초기화 오류:', error);
         alert('애플리케이션 초기화 중 오류가 발생했습니다.');
     }
-});
+}
+
+// 모달 이벤트 리스너 설정
+function setupModalListeners(receiptModalEl, receiptViewModalEl) {
+    receiptModalEl.addEventListener('hidden.bs.modal', function () {
+        const receiptUpdate = document.getElementById('receiptUpdate');
+        if (receiptUpdate) {
+            receiptUpdate.value = '';
+        }
+        currentTransactionId = null;
+    });
+
+    receiptViewModalEl.addEventListener('hidden.bs.modal', function () {
+        const receiptImage = document.getElementById('receiptImage');
+        if (receiptImage) {
+            receiptImage.src = '';
+        }
+    });
+}
+
+// DOM 로드 완료 시 초기화
+document.addEventListener('DOMContentLoaded', initializeApp);
 
 function setupEventListeners() {
     // 거래 목록 이벤트 위임
@@ -105,8 +127,12 @@ function setupEventListeners() {
 }
 
 async function addTransaction(date, description, type, amount, receiptUrl) {
+    if (!window.db) {
+        throw new Error('데이터베이스 연결이 설정되지 않았습니다.');
+    }
+
     try {
-        const docRef = await db.collection('transactions').add({
+        const docRef = await window.db.collection('transactions').add({
             date,
             description,
             type,
@@ -115,17 +141,18 @@ async function addTransaction(date, description, type, amount, receiptUrl) {
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
+        console.log('거래 추가 성공:', docRef.id);
         await loadTransactions();
     } catch (error) {
         console.error('거래 추가 오류:', error);
-        alert('거래를 추가하는 중 오류가 발생했습니다.');
+        throw error;
     }
 }
 
 async function loadTransactions() {
     try {
         showLoading();
-        const snapshot = await db.collection('transactions')
+        const snapshot = await window.db.collection('transactions')
             .orderBy('date', 'desc')
             .get();
         
@@ -245,7 +272,7 @@ async function updateReceipt() {
         showLoading();
         const reader = new FileReader();
         reader.onload = async function(e) {
-            await db.collection('transactions').doc(currentTransactionId).update({
+            await window.db.collection('transactions').doc(currentTransactionId).update({
                 receiptUrl: e.target.result,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
@@ -274,7 +301,7 @@ async function filterTransactions() {
     
     try {
         showLoading();
-        const snapshot = await db.collection('transactions')
+        const snapshot = await window.db.collection('transactions')
             .where('date', '>=', startDate)
             .where('date', '<=', endDate)
             .orderBy('date', 'desc')
