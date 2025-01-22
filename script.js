@@ -19,7 +19,6 @@ let db = null;
 // Firebase 초기화 함수
 async function initializeFirebase() {
     try {
-        // Firebase가 이미 초기화되었는지 확인
         if (!firebase.apps.length) {
             firebase.initializeApp(firebaseConfig);
         }
@@ -49,20 +48,18 @@ async function initializeApp() {
         receiptModal = new bootstrap.Modal(receiptModalEl);
         receiptViewModal = new bootstrap.Modal(receiptViewModalEl);
         
-        // 모달 이벤트 리스너 설정
-        receiptModalEl.addEventListener('hidden.bs.modal', function () {
-            const receiptUpdate = document.getElementById('receiptUpdate');
-            if (receiptUpdate) {
-                receiptUpdate.value = '';
-            }
-            currentTransactionId = null;
-        });
-
-        receiptViewModalEl.addEventListener('hidden.bs.modal', function () {
-            const receiptImage = document.getElementById('receiptImage');
-            if (receiptImage) {
-                receiptImage.src = '';
-            }
+        // 모달 닫기 버튼 이벤트 리스너 설정
+        const closeButtons = document.querySelectorAll('[data-bs-dismiss="modal"]');
+        closeButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const modalEl = this.closest('.modal');
+                if (modalEl.id === 'receiptModal') {
+                    document.getElementById('receiptUpdate').value = '';
+                    currentTransactionId = null;
+                } else if (modalEl.id === 'receiptViewModal') {
+                    document.getElementById('receiptImage').src = '';
+                }
+            });
         });
 
         // 이벤트 리스너 설정
