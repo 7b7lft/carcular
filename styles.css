@@ -198,60 +198,77 @@ button:hover {
 }
 
 /* 반응형 테이블 스타일 */
-@media screen and (max-width: 768px) {
+@media screen and (max-width: 991px) {
     .transaction-table {
-        display: block;
-        width: 100%;
+        border: 0;
     }
 
     .transaction-table thead {
         display: none;
     }
 
-    .transaction-table tbody {
-        display: block;
-        width: 100%;
-    }
-
     .transaction-table tr {
         display: block;
-        width: 100%;
-        margin-bottom: 1rem;
+        background: #fff;
         border: 1px solid #dee2e6;
-        border-radius: 4px;
-        padding: 0.5rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        padding: 1rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
 
     .transaction-table td {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 0.5rem;
+        padding: 0.5rem 0;
         border: none;
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+    .transaction-table td:last-child {
+        border-bottom: none;
     }
 
     .transaction-table td::before {
         content: attr(data-label);
-        font-weight: bold;
+        font-weight: 600;
         margin-right: 1rem;
+        min-width: 100px;
     }
 
-    .receipt-column {
-        justify-content: flex-end !important;
+    /* 영수증 열 스타일 */
+    .transaction-table td.receipt-column {
+        justify-content: flex-start;
+        gap: 1rem;
     }
 
-    .action-column {
-        justify-content: flex-end !important;
+    .transaction-table td.receipt-column .receipt-thumbnail {
+        margin-left: auto;
+    }
+
+    /* 작업 버튼 열 스타일 */
+    .transaction-table td.action-column {
+        justify-content: flex-start;
+        padding-top: 1rem;
+    }
+
+    .transaction-table td.action-column .btn-group {
+        margin-left: auto;
     }
 
     .btn-group {
-        display: flex !important;
-        gap: 0.25rem;
+        display: flex;
+        gap: 0.5rem;
     }
 
-    .receipt-thumbnail {
-        width: 40px;
-        height: 40px;
+    .btn-group .btn {
+        padding: 0.5rem 1rem;
+    }
+
+    /* 금액 정렬 */
+    .transaction-table td[data-label="금액"] {
+        font-weight: 600;
     }
 }
 
@@ -271,9 +288,36 @@ button:hover {
 
 .action-column {
     white-space: nowrap;
-    width: 1%;
+    min-width: 100px;
 }
 
 .receipt-column {
-    width: 1%;
+    min-width: 70px;
+}
+
+/* 스크롤 가능한 테이블 컨테이너 */
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin-bottom: 1rem;
+}
+
+@media screen and (max-width: 576px) {
+    .transaction-table tr {
+        margin: 0.5rem 0;
+        padding: 0.75rem;
+    }
+
+    .transaction-table td {
+        padding: 0.4rem 0;
+    }
+
+    .btn-group .btn {
+        padding: 0.4rem 0.8rem;
+    }
+
+    .receipt-thumbnail {
+        width: 40px;
+        height: 40px;
+    }
 }
