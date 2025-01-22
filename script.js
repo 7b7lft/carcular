@@ -51,6 +51,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 초기 데이터 로드
     loadTransactions();
+
+    // 영수증 뷰어 모달 초기화
+    receiptViewModal = new bootstrap.Modal(document.getElementById('receiptViewModal'));
 });
 
 // 폼 제출 처리
@@ -155,7 +158,11 @@ function displayTransactions() {
                 <td>${transaction.amount.toLocaleString()}원</td>
                 <td>
                     ${transaction.receiptUrl 
-                        ? `<img src="${transaction.receiptUrl}" class="receipt-thumbnail" alt="영수증">`
+                        ? `<img src="${transaction.receiptUrl}" 
+                             class="receipt-thumbnail" 
+                             onclick="viewReceipt('${transaction.receiptUrl}')"
+                             alt="영수증"
+                             style="cursor: pointer;">`
                         : '없음'}
                 </td>
             </tr>
@@ -201,3 +208,25 @@ function hideLoading() {
         spinner.remove();
     }
 }
+
+// 영수증 이미지 보기 함수 추가
+function viewReceipt(receiptUrl) {
+    const receiptImage = document.getElementById('receiptImage');
+    if (receiptImage) {
+        receiptImage.src = receiptUrl;
+        receiptViewModal.show();
+    }
+}
+
+// 모달 닫을 때 이미지 초기화
+document.addEventListener('DOMContentLoaded', function() {
+    const receiptViewModalEl = document.getElementById('receiptViewModal');
+    if (receiptViewModalEl) {
+        receiptViewModalEl.addEventListener('hidden.bs.modal', function () {
+            const receiptImage = document.getElementById('receiptImage');
+            if (receiptImage) {
+                receiptImage.src = '';
+            }
+        });
+    }
+});
