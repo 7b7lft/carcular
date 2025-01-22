@@ -8,28 +8,38 @@ document.addEventListener('DOMContentLoaded', function() {
     receiptModal = new bootstrap.Modal(document.getElementById('receiptModal'));
     receiptViewModal = new bootstrap.Modal(document.getElementById('receiptViewModal'));
     
-    // 영수증 뷰어 모달이 닫힐 때 이미지 초기화
+    // 이벤트 리스너 설정
+    setupEventListeners();
+    
+    // 초기 데이터 로드
+    loadTransactions();
+
+    // 현재 날짜를 기본값으로 설정
+    document.getElementById('date').valueAsDate = new Date();
+});
+
+function setupEventListeners() {
+    // 영수증 뷰어 모달 이벤트
     document.getElementById('receiptViewModal').addEventListener('hidden.bs.modal', function () {
         document.getElementById('receiptImage').src = '';
     });
 
-    // 거래 목록에 대한 이벤트 위임 설정
+    // 거래 목록 이벤트 위임
     document.getElementById('transactionList').addEventListener('click', function(e) {
-        // 영수증 이미지 클릭 처리
         if (e.target.classList.contains('receipt-thumbnail')) {
             viewReceipt(e.target.getAttribute('data-receipt-url'));
         }
-        // 영수증 추가 버튼 클릭 처리
         if (e.target.classList.contains('add-receipt-btn') || 
             e.target.closest('.add-receipt-btn')) {
-            const transactionId = parseInt(e.target.closest('.add-receipt-btn').getAttribute('data-transaction-id'));
+            const transactionId = e.target.closest('.add-receipt-btn').getAttribute('data-transaction-id');
             openReceiptModal(transactionId);
         }
     });
 
-    // 폼 제출 이벤트 리스너
-    document.getElementById('transactionForm').addEventListener('submit', function(e) {
+    // 폼 제출 이벤트
+    document.getElementById('transactionForm').addEventListener('submit', async function(e) {
         e.preventDefault();
+        showLoading();
         
         const date = document.getElementById('date').value;
         const description = document.getElementById('description').value;
@@ -37,52 +47,67 @@ document.addEventListener('DOMContentLoaded', function() {
         const amount = parseFloat(document.getElementById('amount').value);
         const receiptFile = document.getElementById('receipt').files[0];
         
-        if (receiptFile) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                addTransaction(date, description, type, amount, e.target.result);
-            };
-            reader.readAsDataURL(receiptFile);
-        } else {
-            addTransaction(date, description, type, amount, null);
+        try {
+            if (receiptFile) {
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    await addTransaction(date, description, type, amount, e.target.result);
+                };
+                reader.readAsDataURL(receiptFile);
+            } else {
+                await addTransaction(date, description, type, amount, null);
+            }
+            
+            this.reset();
+            // 현재 날짜를 다시 설정
+            document.getElementById('date').valueAsDate = new Date();
+        } catch (error) {
+            console.error('거래 추가 오류:', error);
+            alert('거래를 추가하는 중 오류가 발생했습니다.');
+        } finally {
+            hideLoading();
         }
-        
-        this.reset();
     });
-
-    loadTransactions();
-});
-
-function addTransaction(date, description, type, amount, receiptUrl) {
-    const transaction = {
-        id: Date.now(),
-        date,
-        description,
-        type,
-        amount,
-        receiptUrl
-    };
-    
-    transactions.push(transaction);
-    updateSummary();
-    displayTransactions();
-    saveTransactions();
 }
 
-function updateSummary() {
-    const totalIncome = transactions
-        .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + t.amount, 0);
+async function addTransaction(date, description, type, amount, receiptUrl) {
+    try {
+        const docRef = await db.collection('transactions').add({
+            date,
+            description,
+            type,
+            amount,
+            receiptUrl,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        await loadTransactions();
+    } catch (error) {
+        console.error('거래 추가 오류:', error);
+        alert('거래를 추가하는 중 오류가 발생했습니다.');
+    }
+}
+
+async function loadTransactions() {
+    try {
+        showLoading();
+        const snapshot = await db.collection('transactions')
+            .orderBy('date', 'desc')
+            .get();
         
-    const totalExpense = transactions
-        .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + t.amount, 0);
+        transactions = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
         
-    const balance = totalIncome - totalExpense;
-    
-    document.getElementById('totalIncome').textContent = totalIncome.toLocaleString() + '원';
-    document.getElementById('totalExpense').textContent = totalExpense.toLocaleString() + '원';
-    document.getElementById('balance').textContent = balance.toLocaleString() + '원';
+        updateSummary();
+        displayTransactions();
+    } catch (error) {
+        console.error('거래 목록 로드 오류:', error);
+        alert('거래 목록을 불러오는 중 오류가 발생했습니다.');
+    } finally {
+        hideLoading();
+    }
 }
 
 function displayTransactions(filteredTransactions = transactions) {
@@ -131,78 +156,107 @@ function displayTransactions(filteredTransactions = transactions) {
     transactionList.innerHTML = html;
 }
 
-function viewReceipt(receiptUrl) {
-    try {
-        document.getElementById('receiptImage').src = receiptUrl;
-        if (receiptViewModal) {
-            receiptViewModal.show();
-        } else {
-            receiptViewModal = new bootstrap.Modal(document.getElementById('receiptViewModal'));
-            receiptViewModal.show();
-        }
-    } catch (error) {
-        console.error('영수증 보기 오류:', error);
+function updateSummary() {
+    const totalIncome = transactions
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + t.amount, 0);
+        
+    const totalExpense = transactions
+        .filter(t => t.type === 'expense')
+        .reduce((sum, t) => sum + t.amount, 0);
+        
+    const balance = totalIncome - totalExpense;
+    
+    document.getElementById('totalIncome').textContent = totalIncome.toLocaleString() + '원';
+    document.getElementById('totalExpense').textContent = totalExpense.toLocaleString() + '원';
+    document.getElementById('balance').textContent = balance.toLocaleString() + '원';
+}
+
+function showLoading() {
+    const spinner = document.createElement('div');
+    spinner.className = 'loading-spinner';
+    spinner.innerHTML = `
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    `;
+    document.body.appendChild(spinner);
+}
+
+function hideLoading() {
+    const spinner = document.querySelector('.loading-spinner');
+    if (spinner) {
+        spinner.remove();
     }
+}
+
+function viewReceipt(receiptUrl) {
+    document.getElementById('receiptImage').src = receiptUrl;
+    receiptViewModal.show();
 }
 
 function openReceiptModal(transactionId) {
-    try {
-        currentTransactionId = transactionId;
-        if (receiptModal) {
-            receiptModal.show();
-        } else {
-            receiptModal = new bootstrap.Modal(document.getElementById('receiptModal'));
-            receiptModal.show();
-        }
-    } catch (error) {
-        console.error('영수증 모달 오류:', error);
-    }
+    currentTransactionId = transactionId;
+    receiptModal.show();
 }
 
-function updateReceipt() {
+async function updateReceipt() {
     const receiptFile = document.getElementById('receiptUpdate').files[0];
     if (!receiptFile) {
         alert('영수증 파일을 선택해주세요.');
         return;
     }
 
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const transaction = transactions.find(t => t.id === currentTransactionId);
-        if (transaction) {
-            transaction.receiptUrl = e.target.result;
-            saveTransactions();
-            displayTransactions();
+    try {
+        showLoading();
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            await db.collection('transactions').doc(currentTransactionId).update({
+                receiptUrl: e.target.result,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            
+            await loadTransactions();
             receiptModal.hide();
             document.getElementById('receiptUpdate').value = '';
-        }
-    };
-    reader.readAsDataURL(receiptFile);
+        };
+        reader.readAsDataURL(receiptFile);
+    } catch (error) {
+        console.error('영수증 업데이트 오류:', error);
+        alert('영수증을 업데이트하는 중 오류가 발생했습니다.');
+    } finally {
+        hideLoading();
+    }
 }
 
-function filterTransactions() {
+async function filterTransactions() {
     const startDate = document.getElementById('startDate').value;
     const endDate = document.getElementById('endDate').value;
     
-    if (!startDate || !endDate) return;
+    if (!startDate || !endDate) {
+        alert('시작일과 종료일을 모두 선택해주세요.');
+        return;
+    }
     
-    const filtered = transactions.filter(t => {
-        return t.date >= startDate && t.date <= endDate;
-    });
-    
-    displayTransactions(filtered);
-}
-
-function saveTransactions() {
-    localStorage.setItem('transactions', JSON.stringify(transactions));
-}
-
-function loadTransactions() {
-    const saved = localStorage.getItem('transactions');
-    if (saved) {
-        transactions = JSON.parse(saved);
-        updateSummary();
-        displayTransactions();
+    try {
+        showLoading();
+        const snapshot = await db.collection('transactions')
+            .where('date', '>=', startDate)
+            .where('date', '<=', endDate)
+            .orderBy('date', 'desc')
+            .get();
+        
+        const filteredTransactions = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+        
+        displayTransactions(filteredTransactions);
+    } catch (error) {
+        console.error('거래 필터링 오류:', error);
+        alert('거래를 필터링하는 중 오류가 발생했습니다.');
+    } finally {
+        hideLoading();
     }
 }
 
@@ -220,3 +274,4 @@ window.onclick = function(event) {
         receiptModal.hide();
     }
 }
+
