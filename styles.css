@@ -196,3 +196,84 @@ button:hover {
     z-index: 1051 !important;
     max-width: 90%;
 }
+
+/* 반응형 테이블 스타일 */
+@media screen and (max-width: 768px) {
+    .transaction-table {
+        display: block;
+        width: 100%;
+    }
+
+    .transaction-table thead {
+        display: none;
+    }
+
+    .transaction-table tbody {
+        display: block;
+        width: 100%;
+    }
+
+    .transaction-table tr {
+        display: block;
+        width: 100%;
+        margin-bottom: 1rem;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 0.5rem;
+    }
+
+    .transaction-table td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem;
+        border: none;
+    }
+
+    .transaction-table td::before {
+        content: attr(data-label);
+        font-weight: bold;
+        margin-right: 1rem;
+    }
+
+    .receipt-column {
+        justify-content: flex-end !important;
+    }
+
+    .action-column {
+        justify-content: flex-end !important;
+    }
+
+    .btn-group {
+        display: flex !important;
+        gap: 0.25rem;
+    }
+
+    .receipt-thumbnail {
+        width: 40px;
+        height: 40px;
+    }
+}
+
+/* 버튼 아이콘 스타일 */
+.btn i {
+    font-size: 1rem;
+}
+
+.btn-group {
+    white-space: nowrap;
+}
+
+/* 테이블 셀 여백 조정 */
+.transaction-table td {
+    vertical-align: middle;
+}
+
+.action-column {
+    white-space: nowrap;
+    width: 1%;
+}
+
+.receipt-column {
+    width: 1%;
+}
