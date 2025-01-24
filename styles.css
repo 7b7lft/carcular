@@ -340,19 +340,27 @@ button:hover {
 .no-receipt-wrapper {
     width: 100%;
     display: flex;
-    justify-content: flex-end;
+    justify-content: center;
 }
 
 .no-receipt {
     color: #6c757d;
 }
 
+/* 테이블 기본 스타일 */
+.transaction-table td.receipt-column {
+    text-align: center;
+}
+
+/* 모바일 화면에서의 스타일 */
 @media screen and (max-width: 991px) {
     .transaction-table td.receipt-column {
         justify-content: space-between;
+        text-align: right;
     }
 
     .no-receipt-wrapper {
+        justify-content: flex-end;
         margin-left: auto;
     }
 
@@ -361,7 +369,7 @@ button:hover {
     }
 }
 
-/* 추가적인 모바일 최적화 */
+/* 작은 모바일 화면 최적화 */
 @media screen and (max-width: 576px) {
     .no-receipt {
         font-size: 0.9rem;
