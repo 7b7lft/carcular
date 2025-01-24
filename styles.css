@@ -460,10 +460,20 @@ button:hover {
     .transaction-table tr {
         border: 1px solid #dee2e6 !important;
         margin-bottom: 0.5rem;
+        padding: 0.75rem !important;
     }
 
     .transaction-table tr:last-child {
         margin-bottom: 0;
+    }
+
+    .transaction-table td {
+        border-bottom: 1px solid #dee2e6 !important;
+        padding: 0.5rem 0 !important;
+    }
+
+    .transaction-table td:last-child {
+        border-bottom: none !important;
     }
 }
 
@@ -509,56 +519,9 @@ button:hover {
     min-width: 100px;
 }
 
-/* 모바일 환경에서의 필터 스타일 */
-@media screen and (max-width: 991px) {
-    .card-header .d-flex {
-        flex-direction: column;
-        gap: 1rem;
-    }
-
-    .filter-group {
-        width: 100%;
-        flex-wrap: wrap;
-    }
-
-    .filter-group .form-select-sm {
-        flex: 1;
-        min-width: 120px;
-    }
-
-    .filter-group .btn {
-        width: 100%;
-        margin-top: 0.5rem;
-    }
-
-    .card-header {
-        padding: 0.75rem;
-    }
-
-    .card-body {
-        padding: 1rem 1rem 0.75rem 1rem;
-    }
-
-    /* 모바일 환경에서의 테이블 스타일 */
-    .transaction-table tr {
-        border: 1px solid #dee2e6 !important;
-        margin-bottom: 0.5rem;
-    }
-
-    .transaction-table tr:last-child {
-        margin-bottom: 0;
-    }
-}
-
-@media screen and (max-width: 576px) {
-    .filter-group .form-select-sm {
-        min-width: 100px;
-    }
-}
-
 /* 아코디언 스타일 */
 .card-header[role="button"]:hover {
-    background-color: #0dcaf0 !important; /* 호버 시 약간 밝은 색상 */
+    background-color: #0dcaf0 !important;
 }
 
 #toggleIcon {
@@ -576,7 +539,7 @@ button:hover {
     z-index: 1;
 }
 
-/* 모바일 환경에서의 스타일 조정 */
+/* 모바일 환경에서의 스타일 */
 @media screen and (max-width: 991px) {
     .card-header .d-flex {
         flex-direction: column;
@@ -586,4 +549,32 @@ button:hover {
     #toggleIcon {
         font-size: 1rem;
     }
+
+    /* 모바일 환경에서의 테이블 스타일 */
+    .transaction-table tr {
+        border: 1px solid #dee2e6 !important;
+        margin-bottom: 0.5rem;
+        padding: 0.75rem !important;
+    }
+
+    .transaction-table tr:last-child {
+        margin-bottom: 0;
+    }
+
+    .transaction-table td {
+        border-bottom: 1px solid #dee2e6 !important;
+        padding: 0.5rem 0 !important;
+    }
+
+    .transaction-table td:last-child {
+        border-bottom: none !important;
+    }
 }
+
+@media screen and (max-width: 576px) {
+    .filter-group .form-select-sm {
+        min-width: 100px;
+    }
+}
+
+/* 나머지 기존 스타일 유지 */
