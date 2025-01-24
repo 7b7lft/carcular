@@ -275,11 +275,11 @@ function updateUI() {
         filteredTransactions.forEach(transaction => {
             const row = document.createElement('tr');
             row.innerHTML = `
-                <td>${transaction.date}</td>
-                <td><span class="badge ${transaction.type === '수입' ? 'bg-success' : 'bg-danger'}">${transaction.type}</span></td>
-                <td>${transaction.description}</td>
-                <td class="text-${transaction.type === '수입' ? 'success' : 'danger'}">${formatCurrency(transaction.amount)}</td>
-                <td>
+                <td class="date-cell">${transaction.date}</td>
+                <td class="type-cell"><span class="badge ${transaction.type === '수입' ? 'bg-success' : 'bg-danger'}">${transaction.type}</span></td>
+                <td class="desc-cell">${transaction.description}</td>
+                <td class="amount-cell text-${transaction.type === '수입' ? 'success' : 'danger'}">${formatCurrency(transaction.amount)}</td>
+                <td class="receipt-cell">
                     ${transaction.receiptData ? 
                         `<img src="${transaction.receiptData}" 
                              alt="영수증" 
@@ -288,13 +288,15 @@ function updateUI() {
                              style="cursor: pointer;">` : 
                         '-'}
                 </td>
-                <td>
-                    <div class="btn-group btn-group-sm">
-                        <button class="btn btn-edit" onclick="editTransaction('${transaction.id}')">
-                            <i class="bi bi-pencil"></i> 수정
+                <td class="action-cell">
+                    <div class="d-flex gap-1 action-buttons">
+                        <button class="btn btn-edit btn-sm" onclick="editTransaction('${transaction.id}')">
+                            <i class="bi bi-pencil d-md-none"></i>
+                            <span class="d-none d-md-inline">수정</span>
                         </button>
-                        <button class="btn btn-danger" onclick="deleteTransaction('${transaction.id}')">
-                            <i class="bi bi-trash"></i> 삭제
+                        <button class="btn btn-danger btn-sm" onclick="deleteTransaction('${transaction.id}')">
+                            <i class="bi bi-trash d-md-none"></i>
+                            <span class="d-none d-md-inline">삭제</span>
                         </button>
                     </div>
                 </td>
