@@ -163,3 +163,38 @@ th {
         font-size: 0.875rem;
     }
 }
+
+/* 영수증 모달 스타일 */
+.modal-body {
+    padding: 1rem;
+    background-color: #f8f9fa;
+}
+
+#modalReceiptImage {
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    border-radius: 4px;
+}
+
+.receipt-thumbnail {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 4px;
+    transition: transform 0.2s;
+}
+
+.receipt-thumbnail:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 5px rgba(0,0,0,0.2);
+}
+
+/* 모바일 대응 */
+@media (max-width: 768px) {
+    .modal-dialog {
+        margin: 0.5rem;
+    }
+    
+    .modal-body {
+        padding: 0.5rem;
+    }
+}
