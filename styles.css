@@ -273,7 +273,7 @@ button:hover {
 
     /* 영수증 '없음' 텍스트 정렬 */
     .transaction-table td.receipt-column .no-receipt {
-        margin-rightt: auto;
+        margin-right: auto;
     }
 }
 
@@ -334,4 +334,40 @@ button:hover {
 /* 필터 스타일 */
 .form-select-sm {
     min-width: 100px;
+}
+
+/* 영수증 '없음' 텍스트 정렬 */
+.no-receipt-wrapper {
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.no-receipt {
+    color: #6c757d;
+}
+
+@media screen and (max-width: 991px) {
+    .transaction-table td.receipt-column {
+        justify-content: space-between;
+    }
+
+    .no-receipt-wrapper {
+        margin-left: auto;
+    }
+
+    .transaction-table td.receipt-column::before {
+        flex-shrink: 0;
+    }
+}
+
+/* 추가적인 모바일 최적화 */
+@media screen and (max-width: 576px) {
+    .no-receipt {
+        font-size: 0.9rem;
+    }
+    
+    .transaction-table td.receipt-column {
+        padding-right: 0.5rem;
+    }
 }
