@@ -10,8 +10,18 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body class="bg-light">
-    <div class="container py-3">
-        <h1 class="text-center mb-4">교회 회계장부</h1>
+    <div class="container mt-5">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div class="d-flex align-items-center gap-3">
+                <h2 class="mb-0">교회 회계 장부</h2>
+                <select id="mainYearFilter" class="form-select form-select-sm" style="width: auto;" onchange="changeMainYear()">
+                    <!-- 연도 옵션은 JavaScript에서 동적으로 추가됩니다 -->
+                </select>
+            </div>
+            <button class="btn btn-primary" onclick="openAddModal()">
+                <i class="bi bi-plus-lg"></i> 새 거래 입력
+            </button>
+        </div>
         
         <div class="row">
             <div class="col-md-6 mb-4">
