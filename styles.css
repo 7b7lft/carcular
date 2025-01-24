@@ -245,3 +245,96 @@ input[type="number"] {
         margin-left: 0.5rem;
     }
 }
+
+/* 테이블 반응형 스타일 */
+@media (max-width: 768px) {
+    /* 테이블 셀 조정 */
+    .table {
+        font-size: 0.875rem;
+    }
+    
+    /* 날짜 셀 */
+    .date-cell {
+        white-space: nowrap;
+        font-size: 0.75rem;
+    }
+    
+    /* 구분(수입/지출) 셀 */
+    .type-cell {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+    
+    .type-cell .badge {
+        font-size: 0.7rem;
+        padding: 0.25rem 0.4rem;
+    }
+    
+    /* 내역 셀 */
+    .desc-cell {
+        max-width: 100px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    
+    /* 금액 셀 */
+    .amount-cell {
+        font-size: 0.875rem;
+        white-space: nowrap;
+    }
+    
+    /* 영수증 셀 */
+    .receipt-cell {
+        padding-left: 0.25rem !important;
+        padding-right: 0.25rem !important;
+    }
+    
+    .receipt-thumbnail {
+        width: 30px;
+        height: 30px;
+    }
+    
+    /* 작업 버튼 셀 */
+    .action-cell {
+        padding-left: 0.25rem !important;
+        padding-right: 0.25rem !important;
+    }
+    
+    .action-buttons {
+        gap: 0.25rem !important;
+    }
+    
+    .action-buttons .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+    
+    /* 테이블 헤더 */
+    .table thead th {
+        font-size: 0.75rem;
+        padding: 0.5rem 0.25rem;
+    }
+}
+
+/* 데스크톱 환경 스타일 */
+@media (min-width: 769px) {
+    .receipt-thumbnail {
+        width: 50px;
+        height: 50px;
+    }
+    
+    .action-buttons .btn {
+        min-width: 60px;
+    }
+}
+
+/* 공통 스타일 */
+.table td {
+    vertical-align: middle;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
