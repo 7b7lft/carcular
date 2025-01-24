@@ -72,15 +72,17 @@ async function loadTransactions() {
 async function addTransaction(e) {
     e.preventDefault();
 
+    // 버튼 상태 관리를 위한 변수
+    const submitBtn = document.getElementById('submitBtn');
+    const originalBtnText = submitBtn.innerHTML;
+    
     try {
-        const receiptFile = document.getElementById('receipt').files[0];
-        let receiptData = null;
-        
-        // 로딩 표시
-        const submitBtn = document.getElementById('submitBtn');
-        const originalBtnText = submitBtn.innerHTML;
+        // 로딩 상태 표시
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 처리중...';
+        
+        const receiptFile = document.getElementById('receipt').files[0];
+        let receiptData = null;
         
         const transaction = {
             date: document.getElementById('date').value,
@@ -131,9 +133,8 @@ async function addTransaction(e) {
         alert("거래를 처리하는 중 오류가 발생했습니다.");
     } finally {
         // 버튼 상태 복구
-        const submitBtn = document.getElementById('submitBtn');
         submitBtn.disabled = false;
-        submitBtn.innerHTML = originalBtnText;
+        submitBtn.innerHTML = editingId ? '수정' : '추가';
     }
 }
 
