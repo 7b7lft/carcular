@@ -18,7 +18,6 @@ let db = null;
 let editTransactionModal = null;
 let currentEditId = null;
 let availableYears = new Set();
-let isTransactionListVisible = true;
 
 // Firebase 초기화 함수
 function initializeFirebase() {
@@ -82,27 +81,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // 수정 모달 초기화
     editTransactionModal = new bootstrap.Modal(document.getElementById('editTransactionModal'));
 
-    // 연도 필터 이벤트 리스너
-    document.getElementById('yearFilter').addEventListener('change', updateMonthFilter);
-    document.getElementById('monthFilter').addEventListener('change', function() {
-        if (this.value && !document.getElementById('yearFilter').value) {
-            alert('연도를 먼저 선택해주세요.');
-            this.value = '';
-        }
-    });
-
     // 초기 데이터 로드
     loadTransactions();
-
-    // 초기 상태 설정
-    const toggleIcon = document.getElementById('toggleIcon');
-    if (!isTransactionListVisible) {
-        toggleIcon.classList.remove('bi-chevron-up');
-        toggleIcon.classList.add('bi-chevron-down');
-    } else {
-        toggleIcon.classList.remove('bi-chevron-down');
-        toggleIcon.classList.add('bi-chevron-up');
-    }
 });
 
 // 폼 제출 처리
@@ -163,14 +143,15 @@ async function addTransaction(date, description, type, amount, receiptUrl) {
 // 거래 목록 로드
 async function loadTransactions() {
     try {
-        const snapshot = await db.collection('transactions')
-            .orderBy('date', 'desc')
-            .get();
+        const snapshot = await db.collection('transactions').get();
         
         transactions = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         }));
+        
+        // JavaScript에서 정렬
+        transactions.sort((a, b) => b.date.localeCompare(a.date));
         
         // 사용 가능한 연도 업데이트
         availableYears.clear();
@@ -405,35 +386,33 @@ function updateMonthFilter() {
 }
 
 // 거래 필터링
-async function filterTransactions(event) {
-    if (event) {
-        event.stopPropagation(); // 이벤트 버블링 방지
-    }
-    const year = document.getElementById('yearFilter').value;
-    const month = document.getElementById('monthFilter').value;
-    
+async function filterTransactions() {
     try {
         showLoading();
         let query = db.collection('transactions');
         
+        const year = document.getElementById('yearFilter').value;
+        const month = document.getElementById('monthFilter').value;
+        
         if (year) {
-            const startDate = month 
-                ? `${year}-${month}-01`
-                : `${year}-01-01`;
-            const endDate = month
-                ? `${year}-${month}-31`
-                : `${year}-12-31`;
+            const startDate = `${year}${month || '01'}01`;
+            const endDate = month 
+                ? `${year}${month}31` 
+                : `${year}1231`;
             
             query = query.where('date', '>=', startDate)
                         .where('date', '<=', endDate);
         }
         
-        const snapshot = await query.orderBy('date', 'desc').get();
-        
+        // 날짜순 정렬을 위한 데이터 가져오기 및 정렬
+        const snapshot = await query.get();
         transactions = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         }));
+        
+        // JavaScript에서 정렬
+        transactions.sort((a, b) => b.date.localeCompare(a.date));
         
         displayTransactions();
         updateSummary();
@@ -445,28 +424,16 @@ async function filterTransactions(event) {
     }
 }
 
-// 토글 함수 수정
-function toggleTransactionList() {
-    const wrapper = document.getElementById('transactionListWrapper');
-    const toggleIcon = document.getElementById('toggleIcon');
-    
-    if (isTransactionListVisible) {
-        wrapper.style.display = 'none';
-        toggleIcon.classList.remove('bi-chevron-up');
-        toggleIcon.classList.add('bi-chevron-down');
-    } else {
-        wrapper.style.display = 'block';
-        toggleIcon.classList.remove('bi-chevron-down');
-        toggleIcon.classList.add('bi-chevron-up');
-    }
-    
-    isTransactionListVisible = !isTransactionListVisible;
-}
-
 // PDF 내보내기 함수
 async function exportToPDF(event) {
     if (event) {
         event.stopPropagation();
+    }
+
+    // 거래내역이 없는 경우 처리
+    if (!transactions || transactions.length === 0) {
+        alert('내보낼 거래내역이 없습니다.');
+        return;
     }
 
     // 현재 필터 상태 가져오기
@@ -483,41 +450,74 @@ async function exportToPDF(event) {
         title += ')';
     }
 
+    // 수입/지출 합계 계산
+    const totalIncome = transactions
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + t.amount, 0);
+    
+    const totalExpense = transactions
+        .filter(t => t.type === 'expense')
+        .reduce((sum, t) => sum + t.amount, 0);
+
     // PDF로 변환할 임시 요소 생성
     const element = document.createElement('div');
     element.innerHTML = `
-        <div style="padding: 20px;">
-            <h2 style="text-align: center; margin-bottom: 20px;">${title}</h2>
-            <table style="width: 100%; border-collapse: collapse;">
+        <div style="padding: 20px; font-family: 'Arial', sans-serif;">
+            <h2 style="text-align: center; margin-bottom: 20px; color: #333;">${title}</h2>
+            
+            <div style="margin-bottom: 20px; padding: 10px; background-color: #f8f9fa; border-radius: 5px;">
+                <div style="margin-bottom: 5px;">총 수입: ${totalIncome.toLocaleString()}원</div>
+                <div style="margin-bottom: 5px;">총 지출: ${totalExpense.toLocaleString()}원</div>
+                <div>잔액: ${(totalIncome - totalExpense).toLocaleString()}원</div>
+            </div>
+
+            <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
                 <thead>
                     <tr style="background-color: #f8f9fa;">
-                        <th style="border: 1px solid #dee2e6; padding: 8px;">날짜</th>
-                        <th style="border: 1px solid #dee2e6; padding: 8px;">내용</th>
-                        <th style="border: 1px solid #dee2e6; padding: 8px;">구분</th>
-                        <th style="border: 1px solid #dee2e6; padding: 8px;">금액</th>
+                        <th style="border: 1px solid #dee2e6; padding: 12px; text-align: left;">날짜</th>
+                        <th style="border: 1px solid #dee2e6; padding: 12px; text-align: left;">내용</th>
+                        <th style="border: 1px solid #dee2e6; padding: 12px; text-align: center;">구분</th>
+                        <th style="border: 1px solid #dee2e6; padding: 12px; text-align: right;">금액</th>
                     </tr>
                 </thead>
                 <tbody>
                     ${transactions.map(transaction => `
                         <tr>
-                            <td style="border: 1px solid #dee2e6; padding: 8px;">${transaction.date}</td>
-                            <td style="border: 1px solid #dee2e6; padding: 8px;">${transaction.description}</td>
-                            <td style="border: 1px solid #dee2e6; padding: 8px;">${transaction.type === 'income' ? '수입' : '지출'}</td>
-                            <td style="border: 1px solid #dee2e6; padding: 8px; text-align: right;">${transaction.amount.toLocaleString()}원</td>
+                            <td style="border: 1px solid #dee2e6; padding: 12px;">${transaction.date}</td>
+                            <td style="border: 1px solid #dee2e6; padding: 12px;">${transaction.description}</td>
+                            <td style="border: 1px solid #dee2e6; padding: 12px; text-align: center; color: ${transaction.type === 'income' ? '#198754' : '#dc3545'}">
+                                ${transaction.type === 'income' ? '수입' : '지출'}
+                            </td>
+                            <td style="border: 1px solid #dee2e6; padding: 12px; text-align: right; color: ${transaction.type === 'income' ? '#198754' : '#dc3545'}">
+                                ${transaction.amount.toLocaleString()}원
+                            </td>
                         </tr>
                     `).join('')}
                 </tbody>
             </table>
+            
+            <div style="margin-top: 20px; text-align: right; font-size: 12px; color: #6c757d;">
+                출력일시: ${new Date().toLocaleString()}
+            </div>
         </div>
     `;
 
     // PDF 옵션 설정
     const opt = {
-        margin: 1,
+        margin: [10, 10],
         filename: `${title}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        html2canvas: { 
+            scale: 2,
+            useCORS: true,
+            logging: false
+        },
+        jsPDF: { 
+            unit: 'mm', 
+            format: 'a4', 
+            orientation: 'portrait',
+            compress: true
+        }
     };
 
     try {
