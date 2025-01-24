@@ -4,62 +4,98 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>교회 회계 장부</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
-<body>
-    <div class="container">
-        <h1>교회 회계 장부</h1>
+<body class="bg-light">
+    <div class="container py-4">
+        <h1 class="text-center mb-4">교회 회계 장부</h1>
         
-        <div class="input-section">
-            <h2 id="formTitle">새로운 항목 추가</h2>
-            <form id="transactionForm">
-                <input type="date" id="date" required>
-                <select id="type" required>
-                    <option value="수입">수입</option>
-                    <option value="지출">지출</option>
-                </select>
-                <input type="text" id="description" placeholder="내역" required>
-                <input type="number" id="amount" placeholder="금액" required>
-                <input type="file" id="receipt" accept="image/*">
-                <button type="submit" id="submitBtn">추가</button>
-                <button type="button" id="cancelBtn" style="display: none; background-color: #6c757d;" onclick="cancelEdit()">취소</button>
-            </form>
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h2 class="card-title h4" id="formTitle">새로운 항목 추가</h2>
+                <form id="transactionForm" class="row g-3">
+                    <div class="col-md-6 col-lg-3">
+                        <label for="date" class="form-label">날짜</label>
+                        <input type="date" class="form-control" id="date" required>
+                    </div>
+                    <div class="col-md-6 col-lg-2">
+                        <label for="type" class="form-label">구분</label>
+                        <select class="form-select" id="type" required>
+                            <option value="수입">수입</option>
+                            <option value="지출">지출</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 col-lg-3">
+                        <label for="description" class="form-label">내역</label>
+                        <input type="text" class="form-control" id="description" placeholder="내역" required>
+                    </div>
+                    <div class="col-md-6 col-lg-2">
+                        <label for="amount" class="form-label">금액</label>
+                        <input type="number" class="form-control" id="amount" placeholder="금액" required>
+                    </div>
+                    <div class="col-md-8 col-lg-2">
+                        <label for="receipt" class="form-label">영수증</label>
+                        <input type="file" class="form-control" id="receipt" accept="image/*">
+                    </div>
+                    <div class="col-12 d-flex gap-2">
+                        <button type="submit" class="btn btn-primary" id="submitBtn">추가</button>
+                        <button type="button" class="btn btn-secondary" id="cancelBtn" style="display: none;" onclick="cancelEdit()">취소</button>
+                    </div>
+                </form>
+            </div>
         </div>
 
-        <div class="summary-section">
-            <div class="balance">
-                <h3>현재 잔액</h3>
-                <p id="totalBalance">0원</p>
-            </div>
-            <div class="summary">
-                <div class="income">
-                    <h3>총 수입</h3>
-                    <p id="totalIncome">0원</p>
+        <div class="row mb-4">
+            <div class="col-md-4 mb-3">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h3 class="h5">현재 잔액</h3>
+                        <p class="h3" id="totalBalance">0원</p>
+                    </div>
                 </div>
-                <div class="expense">
-                    <h3>총 지출</h3>
-                    <p id="totalExpense">0원</p>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h3 class="h5">총 수입</h3>
+                        <p class="h3 text-success" id="totalIncome">0원</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h3 class="h5">총 지출</h3>
+                        <p class="h3 text-danger" id="totalExpense">0원</p>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="transaction-section">
-            <h2>거래 내역</h2>
-            <table id="transactionTable">
-                <thead>
-                    <tr>
-                        <th>날짜</th>
-                        <th>구분</th>
-                        <th>내역</th>
-                        <th>금액</th>
-                        <th>영수증</th>
-                        <th>작업</th>
-                    </tr>
-                </thead>
-                <tbody id="transactionList"></tbody>
-            </table>
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h2 class="card-title h4">거래 내역</h2>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>날짜</th>
+                                <th>구분</th>
+                                <th>내역</th>
+                                <th>금액</th>
+                                <th>영수증</th>
+                                <th>작업</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactionList"></tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
