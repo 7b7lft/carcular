@@ -9,284 +9,204 @@ const firebaseConfig = {
     measurementId: "G-YBWK7K8L5E"
 };
 
-let db;
-try {
-    firebase.initializeApp(firebaseConfig);
-    db = firebase.firestore();
-    console.log('Firebase 초기화 성공');
-} catch (error) {
-    console.error('Firebase 초기화 오류:', error);
-}
-
-// 전역 변수
-let currentYear = new Date().getFullYear().toString();
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const storage = firebase.storage();
 let transactions = [];
-let availableYears = new Set();
+let editingId = null; // 현재 수정 중인 항목의 ID를 저장
 
-// 로딩 표시 함수
-function showLoading() {
-    // 로딩 표시 구현
-}
-
-function hideLoading() {
-    // 로딩 숨김 구현
-}
-
-// 사용 가능한 연도 업데이트
-async function updateAvailableYears() {
-    try {
-        const snapshot = await db.collection('transactions').get();
-        availableYears.clear();
-        
-        snapshot.forEach(doc => {
-            const year = doc.data().date.substring(0, 4);
-            availableYears.add(year);
-        });
-        
-        const mainYearFilter = document.getElementById('mainYearFilter');
-        if (mainYearFilter) {
-            const years = Array.from(availableYears).sort((a, b) => b - a);
-            mainYearFilter.innerHTML = years.map(year => 
-                `<option value="${year}">${year}년</option>`
-            ).join('');
-            
-            if (years.length > 0) {
-                currentYear = years[0];
-                mainYearFilter.value = currentYear;
-            }
-        }
-    } catch (error) {
-        console.error('연도 업데이트 오류:', error);
-    }
-}
-
-// 초기 데이터 로드
-async function loadInitialData() {
-    try {
-        // 사용 가능한 연도 조회
-        const snapshot = await db.collection('transactions').get();
-        const years = new Set();
-        
-        snapshot.forEach(doc => {
-            const year = doc.data().date.substring(0, 4);
-            years.add(year);
-        });
-        
-        // 연도 필터 업데이트
-        const mainYearFilter = document.getElementById('mainYearFilter');
-        if (mainYearFilter) {
-            const sortedYears = Array.from(years).sort((a, b) => b - a);
-            mainYearFilter.innerHTML = sortedYears.map(year => 
-                `<option value="${year}">${year}년</option>`
-            ).join('');
-            
-            // 가장 최근 연도 선택
-            if (sortedYears.length > 0) {
-                currentYear = sortedYears[0];
-                mainYearFilter.value = currentYear;
-            }
-        }
-        
-        // 초기 데이터 로드
-        await loadTransactions();
-        
-    } catch (error) {
-        console.error('초기 데이터 로드 오류:', error);
-        alert('데이터를 불러오는 중 오류가 발생했습니다.');
-    }
-}
-
-// 거래 내역 로드
+// Firestore에서 데이터 가져오기
 async function loadTransactions() {
+    const snapshot = await db.collection('transactions').get();
+    transactions = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+    }));
+    updateUI();
+}
+
+// 영수증 이미지 업로드
+async function uploadReceipt(file) {
+    if (!file) return null;
+    
+    const timestamp = Date.now();
+    const storageRef = storage.ref();
+    const fileRef = storageRef.child(`receipts/${timestamp}_${file.name}`);
+    
     try {
-        const startDate = `${currentYear}0101`;
-        const endDate = `${currentYear}1231`;
-        const month = document.getElementById('monthFilter').value;
-        
-        let query = db.collection('transactions');
-        
-        if (month) {
-            const monthStartDate = `${currentYear}${month}01`;
-            const monthEndDate = `${currentYear}${month}31`;
-            query = query.where('date', '>=', monthStartDate)
-                        .where('date', '<=', monthEndDate);
-        } else {
-            query = query.where('date', '>=', startDate)
-                        .where('date', '<=', endDate);
-        }
-        
-        const snapshot = await query.get();
-        transactions = [];
-        
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            transactions.push({
-                id: doc.id,
-                date: data.date,
-                description: data.description,
-                type: data.type,
-                amount: parseInt(data.amount)
-            });
-        });
-        
-        // 날짜순 정렬
-        transactions.sort((a, b) => b.date.localeCompare(a.date));
-        
-        // UI 업데이트
-        updateUI();
-        
+        await fileRef.put(file);
+        const downloadURL = await fileRef.getDownloadURL();
+        return downloadURL;
     } catch (error) {
-        console.error('거래 내역 로드 오류:', error);
-        alert('거래 내역을 불러오는 중 오류가 발생했습니다.');
+        console.error("영수증 업로드 중 오류 발생:", error);
+        throw error;
     }
 }
 
-// UI 업데이트
-function updateUI() {
-    updateSummary();
-    updateTransactionList();
+// 수정 모드로 전환
+async function editTransaction(id) {
+    const transaction = transactions.find(t => t.id === id);
+    if (!transaction) return;
+
+    // 폼 필드에 데이터 채우기
+    document.getElementById('date').value = transaction.date;
+    document.getElementById('type').value = transaction.type;
+    document.getElementById('description').value = transaction.description;
+    document.getElementById('amount').value = transaction.amount;
+    
+    // UI 업데이트
+    document.getElementById('formTitle').textContent = '항목 수정';
+    document.getElementById('submitBtn').textContent = '수정';
+    document.getElementById('cancelBtn').style.display = 'block';
+    
+    // 수정 모드 설정
+    editingId = id;
+    
+    // 스크롤을 폼으로 이동
+    document.querySelector('.input-section').scrollIntoView({ behavior: 'smooth' });
 }
 
-// 요약 정보 업데이트
-function updateSummary() {
-    const totalIncome = transactions
-        .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + t.amount, 0);
-    
-    const totalExpense = transactions
-        .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + t.amount, 0);
-    
-    const balance = totalIncome - totalExpense;
-    
-    document.getElementById('summary').innerHTML = `
-        <div class="row">
-            <div class="col-md-4 mb-3">
-                <div class="card bg-success text-white h-100">
-                    <div class="card-body">
-                        <h5 class="card-title">총 수입</h5>
-                        <p class="card-text">${totalIncome.toLocaleString()}원</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4 mb-3">
-                <div class="card bg-danger text-white h-100">
-                    <div class="card-body">
-                        <h5 class="card-title">총 지출</h5>
-                        <p class="card-text">${totalExpense.toLocaleString()}원</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4 mb-3">
-                <div class="card ${balance >= 0 ? 'bg-info' : 'bg-warning'} text-white h-100">
-                    <div class="card-body">
-                        <h5 class="card-title">잔액</h5>
-                        <p class="card-text">${balance.toLocaleString()}원</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
+// 수정 취소
+function cancelEdit() {
+    editingId = null;
+    document.getElementById('transactionForm').reset();
+    document.getElementById('formTitle').textContent = '새로운 항목 추가';
+    document.getElementById('submitBtn').textContent = '추가';
+    document.getElementById('cancelBtn').style.display = 'none';
 }
 
-// 거래 내역 목록 업데이트
-function updateTransactionList() {
-    const transactionList = document.getElementById('transactionList');
-    
-    if (transactions.length === 0) {
-        transactionList.innerHTML = '<p class="text-center my-3">거래 내역이 없습니다.</p>';
-        return;
-    }
-    
-    transactionList.innerHTML = `
-        <table class="table table-hover">
-            <thead>
-                <tr>
-                    <th>날짜</th>
-                    <th>내용</th>
-                    <th>구분</th>
-                    <th class="text-end">금액</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${transactions.map(transaction => `
-                    <tr>
-                        <td>${transaction.date.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')}</td>
-                        <td>${transaction.description}</td>
-                        <td>${transaction.type === 'income' ? '수입' : '지출'}</td>
-                        <td class="text-end ${transaction.type === 'income' ? 'text-success' : 'text-danger'}">
-                            ${transaction.amount.toLocaleString()}원
-                        </td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>
-    `;
-}
+// 거래 추가/수정
+async function addTransaction(e) {
+    e.preventDefault();
 
-// 이벤트 핸들러
-function changeMainYear() {
-    currentYear = document.getElementById('mainYearFilter').value;
-    document.getElementById('monthFilter').value = '';
-    loadTransactions();
-}
-
-function filterTransactions() {
-    loadTransactions();
-}
-
-// 새 거래 추가 함수
-async function addTransaction() {
     try {
-        const date = document.getElementById('transactionDate').value.replace(/-/g, '');
-        const type = document.getElementById('transactionType').value;
-        const description = document.getElementById('transactionDescription').value;
-        const amount = parseInt(document.getElementById('transactionAmount').value);
-
-        if (!date || !type || !description || !amount) {
-            alert('모든 필드를 입력해주세요.');
-            return;
-        }
-
+        const receiptFile = document.getElementById('receipt').files[0];
+        let receiptURL = null;
+        
         const transaction = {
-            date,
-            type,
-            description,
-            amount
+            date: document.getElementById('date').value,
+            type: document.getElementById('type').value,
+            description: document.getElementById('description').value,
+            amount: parseFloat(document.getElementById('amount').value),
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
         };
 
-        // Firestore에 저장
-        const docRef = await db.collection('transactions').add(transaction);
-        console.log('거래 추가됨:', docRef.id);
+        if (editingId) {
+            // 수정 모드
+            const existingTransaction = transactions.find(t => t.id === editingId);
+            
+            // 새 영수증이 있는 경우에만 업로드
+            if (receiptFile) {
+                // 기존 영수증이 있다면 삭제
+                if (existingTransaction.receiptURL) {
+                    const oldImageRef = storage.refFromURL(existingTransaction.receiptURL);
+                    await oldImageRef.delete();
+                }
+                receiptURL = await uploadReceipt(receiptFile);
+                transaction.receiptURL = receiptURL;
+            } else {
+                // 새 영수증이 없으면 기존 영수증 URL 유지
+                transaction.receiptURL = existingTransaction.receiptURL;
+            }
 
-        // 모달 닫기
-        const modal = bootstrap.Modal.getInstance(document.getElementById('addTransactionModal'));
-        modal.hide();
+            await db.collection('transactions').doc(editingId).update(transaction);
+            const index = transactions.findIndex(t => t.id === editingId);
+            transactions[index] = { ...transaction, id: editingId };
+            
+            // 수정 모드 종료
+            cancelEdit();
+        } else {
+            // 추가 모드
+            if (receiptFile) {
+                receiptURL = await uploadReceipt(receiptFile);
+                transaction.receiptURL = receiptURL;
+            }
 
-        // 폼 초기화
-        document.getElementById('transactionForm').reset();
+            const docRef = await db.collection('transactions').add(transaction);
+            transaction.id = docRef.id;
+            transactions.push(transaction);
+        }
 
-        // 데이터 다시 로드
-        await loadTransactions();
-
-        alert('거래가 추가되었습니다.');
-
+        updateUI();
+        e.target.reset();
     } catch (error) {
-        console.error('거래 추가 오류:', error);
-        alert('거래를 추가하는 중 오류가 발생했습니다.');
+        console.error("거래 처리 중 오류 발생:", error);
+        alert("거래를 처리하는 중 오류가 발생했습니다.");
     }
 }
 
-// 모달이 닫힐 때 폼 초기화
-document.getElementById('addTransactionModal').addEventListener('hidden.bs.modal', function () {
-    document.getElementById('transactionForm').reset();
-});
+// 거래 삭제
+async function deleteTransaction(id) {
+    try {
+        const transaction = transactions.find(t => t.id === id);
+        
+        // 영수증 이미지가 있다면 Storage에서도 삭제
+        if (transaction.receiptURL) {
+            const imageRef = storage.refFromURL(transaction.receiptURL);
+            await imageRef.delete();
+        }
 
-// 날짜 입력 필드 기본값 설정
-document.getElementById('addTransactionModal').addEventListener('show.bs.modal', function () {
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('transactionDate').value = today;
-});
+        await db.collection('transactions').doc(id).delete();
+        transactions = transactions.filter(transaction => transaction.id !== id);
+        updateUI();
+    } catch (error) {
+        console.error("거래 삭제 중 오류 발생:", error);
+        alert("거래를 삭제하는 중 오류가 발생했습니다.");
+    }
+}
 
-// 페이지 로드 시 초기화
-document.addEventListener('DOMContentLoaded', loadInitialData);
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(amount);
+}
+
+function updateUI() {
+    const transactionList = document.getElementById('transactionList');
+    const totalBalance = document.getElementById('totalBalance');
+    const totalIncome = document.getElementById('totalIncome');
+    const totalExpense = document.getElementById('totalExpense');
+
+    // 거래 내역 업데이트
+    transactionList.innerHTML = '';
+    transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    transactions.forEach(transaction => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${transaction.date}</td>
+            <td>${transaction.type}</td>
+            <td>${transaction.description}</td>
+            <td>${formatCurrency(transaction.amount)}</td>
+            <td>
+                ${transaction.receiptURL ? 
+                    `<a href="${transaction.receiptURL}" target="_blank">
+                        <img src="${transaction.receiptURL}" alt="영수증" style="width: 50px; height: 50px; object-fit: cover;">
+                    </a>` : 
+                    ''}
+            </td>
+            <td>
+                <button class="edit-btn" onclick="editTransaction('${transaction.id}')">수정</button>
+                <button class="delete-btn" onclick="deleteTransaction('${transaction.id}')">삭제</button>
+            </td>
+        `;
+        transactionList.appendChild(row);
+    });
+
+    // 합계 계산
+    const income = transactions
+        .filter(transaction => transaction.type === '수입')
+        .reduce((total, transaction) => total + transaction.amount, 0);
+
+    const expense = transactions
+        .filter(transaction => transaction.type === '지출')
+        .reduce((total, transaction) => total + transaction.amount, 0);
+
+    const balance = income - expense;
+
+    // 화면 업데이트
+    totalBalance.textContent = formatCurrency(balance);
+    totalIncome.textContent = formatCurrency(income);
+    totalExpense.textContent = formatCurrency(expense);
+}
+
+document.getElementById('transactionForm').addEventListener('submit', addTransaction);
+window.addEventListener('load', loadTransactions);
