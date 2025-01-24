@@ -64,41 +64,63 @@ async function updateAvailableYears() {
 async function filterTransactions() {
     try {
         showLoading();
+        console.log('필터링 시작:', currentYear);
         
+        // 기본 쿼리
         const startDate = `${currentYear}0101`;
         const endDate = `${currentYear}1231`;
         
-        let query = db.collection('transactions');
+        // 월 필터 적용
         const month = document.getElementById('monthFilter').value;
+        let querySnapshot;
         
         if (month) {
-            query = query.where('date', '>=', `${currentYear}${month}01`)
-                        .where('date', '<=', `${currentYear}${month}31`);
+            const monthStartDate = `${currentYear}${month}01`;
+            const monthEndDate = `${currentYear}${month}31`;
+            console.log('월별 조회:', monthStartDate, '~', monthEndDate);
+            
+            querySnapshot = await db.collection('transactions')
+                .where('date', '>=', monthStartDate)
+                .where('date', '<=', monthEndDate)
+                .get();
         } else {
-            query = query.where('date', '>=', startDate)
-                        .where('date', '<=', endDate);
+            console.log('연도 조회:', startDate, '~', endDate);
+            
+            querySnapshot = await db.collection('transactions')
+                .where('date', '>=', startDate)
+                .where('date', '<=', endDate)
+                .get();
         }
+
+        console.log('조회된 문서 수:', querySnapshot.size);
         
-        const snapshot = await query.get();
+        // 데이터 처리
         transactions = [];
-        
-        snapshot.forEach(doc => {
+        querySnapshot.forEach(doc => {
             const data = doc.data();
+            console.log('문서 데이터:', data);
+            
             transactions.push({
                 id: doc.id,
-                date: data.date,
-                description: data.description,
-                type: data.type,
-                amount: parseInt(data.amount)
+                date: data.date || '',
+                description: data.description || '',
+                type: data.type || '',
+                amount: parseInt(data.amount) || 0
             });
         });
+
+        console.log('처리된 거래:', transactions);
         
+        // 날짜순 정렬
         transactions.sort((a, b) => b.date.localeCompare(a.date));
         
+        // UI 업데이트
         displayTransactions();
         updateSummary();
+        
     } catch (error) {
         console.error('거래 필터링 오류:', error);
+        alert('데이터를 불러오는 중 오류가 발생했습니다.');
     } finally {
         hideLoading();
     }
@@ -107,14 +129,19 @@ async function filterTransactions() {
 // 거래 내역 표시
 function displayTransactions() {
     const transactionList = document.getElementById('transactionList');
-    if (!transactionList) return;
+    if (!transactionList) {
+        console.error('거래 내역 표시 영역을 찾을 수 없습니다.');
+        return;
+    }
 
-    if (transactions.length === 0) {
+    console.log('거래 내역 표시 시작:', transactions.length, '건');
+
+    if (!transactions || transactions.length === 0) {
         transactionList.innerHTML = '<p class="text-center my-3">거래 내역이 없습니다.</p>';
         return;
     }
 
-    const html = `
+    let html = `
         <table class="table table-hover">
             <thead>
                 <tr>
@@ -125,66 +152,88 @@ function displayTransactions() {
                 </tr>
             </thead>
             <tbody>
-                ${transactions.map(transaction => `
-                    <tr>
-                        <td>${transaction.date.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')}</td>
-                        <td>${transaction.description}</td>
-                        <td>${transaction.type === 'income' ? '수입' : '지출'}</td>
-                        <td class="text-end ${transaction.type === 'income' ? 'text-success' : 'text-danger'}">
-                            ${transaction.amount.toLocaleString()}원
-                        </td>
-                    </tr>
-                `).join('')}
+    `;
+
+    transactions.forEach(transaction => {
+        const date = transaction.date.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3');
+        const type = transaction.type === 'income' ? '수입' : '지출';
+        const amount = transaction.amount.toLocaleString();
+
+        html += `
+            <tr>
+                <td>${date}</td>
+                <td>${transaction.description}</td>
+                <td>${type}</td>
+                <td class="text-end ${transaction.type === 'income' ? 'text-success' : 'text-danger'}">${amount}원</td>
+            </tr>
+        `;
+    });
+
+    html += `
             </tbody>
         </table>
     `;
 
     transactionList.innerHTML = html;
+    console.log('거래 내역 표시 완료');
 }
 
 // 요약 정보 업데이트
 function updateSummary() {
+    console.log('요약 정보 업데이트 시작');
+    
     const totalIncome = transactions
         .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + t.amount, 0);
+        .reduce((sum, t) => sum + (t.amount || 0), 0);
     
     const totalExpense = transactions
         .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + t.amount, 0);
+        .reduce((sum, t) => sum + (t.amount || 0), 0);
     
     const balance = totalIncome - totalExpense;
     
+    console.log('계산된 금액:', {
+        수입: totalIncome,
+        지출: totalExpense,
+        잔액: balance
+    });
+
     const summaryElement = document.getElementById('summary');
-    if (summaryElement) {
-        summaryElement.innerHTML = `
-            <div class="row">
-                <div class="col-md-4 mb-3">
-                    <div class="card bg-success text-white h-100">
-                        <div class="card-body">
-                            <h5 class="card-title">총 수입</h5>
-                            <p class="card-text">${totalIncome.toLocaleString()}원</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4 mb-3">
-                    <div class="card bg-danger text-white h-100">
-                        <div class="card-body">
-                            <h5 class="card-title">총 지출</h5>
-                            <p class="card-text">${totalExpense.toLocaleString()}원</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4 mb-3">
-                    <div class="card ${balance >= 0 ? 'bg-info' : 'bg-warning'} text-white h-100">
-                        <div class="card-body">
-                            <h5 class="card-title">잔액</h5>
-                            <p class="card-text">${balance.toLocaleString()}원</p>
-                        </div>
+    if (!summaryElement) {
+        console.error('요약 정보 표시 영역을 찾을 수 없습니다.');
+        return;
+    }
+
+    summaryElement.innerHTML = `
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <div class="card bg-success text-white h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">총 수입</h5>
+                        <p class="card-text">${totalIncome.toLocaleString()}원</p>
                     </div>
                 </div>
             </div>
-        `;
-    }
+            <div class="col-md-4 mb-3">
+                <div class="card bg-danger text-white h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">총 지출</h5>
+                        <p class="card-text">${totalExpense.toLocaleString()}원</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card ${balance >= 0 ? 'bg-info' : 'bg-warning'} text-white h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">잔액</h5>
+                        <p class="card-text">${balance.toLocaleString()}원</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    console.log('요약 정보 업데이트 완료');
 }
 
 // 연도 변경 처리
