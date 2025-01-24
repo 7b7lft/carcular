@@ -446,10 +446,6 @@ button:hover {
     .filter-group .btn {
         width: 100%;
         margin-top: 0.5rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.25rem;
     }
 
     .card-header {
@@ -620,5 +616,65 @@ button:hover {
     #mainYearFilter {
         font-size: 1rem;
         padding: 0.25rem 1.5rem 0.25rem 0.75rem;
+    }
+}
+
+/* 필터 그룹 스타일 */
+.filter-group {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.filter-group .form-select-sm {
+    width: auto;
+    min-width: 100px;
+}
+
+/* 테이블 스타일 */
+.table-responsive {
+    overflow-x: auto;
+}
+
+.table th {
+    background-color: #f8f9fa;
+}
+
+/* PDF 버튼 스타일 */
+.btn-light i {
+    margin-right: 4px;
+}
+
+/* 모바일 환경 스타일 */
+@media screen and (max-width: 991px) {
+    .card-header .d-flex {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .filter-group {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+
+    .filter-group .form-select-sm {
+        flex: 1;
+        min-width: 120px;
+    }
+
+    .filter-group .btn {
+        width: 100%;
+        margin-top: 0.5rem;
+    }
+}
+
+@media screen and (max-width: 576px) {
+    .container .d-flex {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    #mainYearFilter {
+        width: 100%;
     }
 }
