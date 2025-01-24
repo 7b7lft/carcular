@@ -177,56 +177,44 @@ function displayTransactions() {
     const transactionList = document.getElementById('transactionList');
     if (!transactionList) return;
 
+    if (transactions.length === 0) {
+        transactionList.innerHTML = '<p class="text-center my-3">거래 내역이 없습니다.</p>';
+        return;
+    }
+
     let html = `
-        <div class="table-responsive">
-            <table class="table transaction-table">
-                <thead>
-                    <tr>
-                        <th>날짜</th>
-                        <th>내용</th>
-                        <th>구분</th>
-                        <th>금액</th>
-                        <th class="receipt-column">영수증</th>
-                        <th class="action-column">작업</th>
-                    </tr>
-                </thead>
-                <tbody>
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>날짜</th>
+                    <th>내용</th>
+                    <th>구분</th>
+                    <th class="text-end">금액</th>
+                </tr>
+            </thead>
+            <tbody>
     `;
 
     transactions.forEach(transaction => {
+        const date = transaction.date.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3');
+        const type = transaction.type === 'income' ? '수입' : '지출';
+        const amount = transaction.amount.toLocaleString();
+
         html += `
             <tr>
-                <td data-label="날짜">${transaction.date}</td>
-                <td data-label="내용">${transaction.description}</td>
-                <td data-label="구분" class="${transaction.type === 'income' ? 'text-success' : 'text-danger'}">
-                    ${transaction.type === 'income' ? '수입' : '지출'}
-                </td>
-                <td data-label="금액" class="${transaction.type === 'income' ? 'text-success' : 'text-danger'}">
-                    ${transaction.amount.toLocaleString()}원
-                </td>
-                <td data-label="영수증" class="receipt-column">
-                    ${transaction.receiptUrl 
-                        ? `<img src="${transaction.receiptUrl}" 
-                             class="receipt-thumbnail" 
-                             onclick="viewReceipt('${transaction.receiptUrl}')"
-                             alt="영수증">`
-                        : '<div class="no-receipt-wrapper"><span class="no-receipt">없음</span></div>'}
-                </td>
-                <td data-label="작업" class="action-column">
-                    <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-primary" onclick="openEditModal('${transaction.id}')">
-                            <i class="bi bi-pencil"></i>
-                        </button>
-                        <button class="btn btn-outline-danger" onclick="deleteTransaction('${transaction.id}')">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </div>
-                </td>
+                <td>${date}</td>
+                <td>${transaction.description}</td>
+                <td>${type}</td>
+                <td class="text-end ${transaction.type === 'income' ? 'text-success' : 'text-danger'}">${amount}원</td>
             </tr>
         `;
     });
 
-    html += '</tbody></table></div>';
+    html += `
+            </tbody>
+        </table>
+    `;
+
     transactionList.innerHTML = html;
 }
 
@@ -559,12 +547,6 @@ async function changeMainYear() {
 
     currentYear = mainYearFilter.value;
     
-    // 거래내역 연도 필터 동기화
-    const yearFilter = document.getElementById('yearFilter');
-    if (yearFilter) {
-        yearFilter.value = currentYear;
-    }
-
     // 월 필터 초기화
     const monthFilter = document.getElementById('monthFilter');
     if (monthFilter) {
@@ -579,13 +561,6 @@ async function changeMainYear() {
 async function initializeApp() {
     try {
         initMainYearFilter();
-        
-        // 연도 필터 동기화
-        const yearFilter = document.getElementById('yearFilter');
-        if (yearFilter) {
-            yearFilter.value = currentYear;
-        }
-        
         // 초기 데이터 로드
         await filterTransactions();
     } catch (error) {
