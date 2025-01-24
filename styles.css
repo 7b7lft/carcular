@@ -358,11 +358,17 @@ button:hover {
 
 /* 모바일 화면에서의 스타일 */
 @media screen and (max-width: 991px) {
+    .transaction-table td {
+        padding: 0.5rem 0 !important; /* 기본 패딩 제거 */
+    }
+
     .transaction-table td.receipt-column {
         display: flex !important;
         justify-content: space-between !important;
         align-items: center !important;
         text-align: left !important;
+        padding-right: 0 !important; /* 오른쪽 패딩 제거 */
+        width: 100%; /* 전체 너비 사용 */
     }
 
     .transaction-table td.receipt-column::before {
@@ -370,6 +376,7 @@ button:hover {
         font-weight: 600;
         flex-shrink: 0;
         margin-right: auto;
+        padding-right: 1rem; /* 레이블과 내용 사이 간격 */
     }
 
     .receipt-thumbnail {
@@ -379,7 +386,13 @@ button:hover {
     .no-receipt {
         text-align: right;
         margin-left: auto;
-        padding-right: 0;
+        padding: 0; /* 모든 패딩 제거 */
+        margin-right: 0; /* 오른쪽 마진 제거 */
+    }
+
+    /* 테이블 셀 전체 스타일 재정의 */
+    .transaction-table tr {
+        padding: 0.75rem 0.5rem; /* 행 전체 패딩 조정 */
     }
 }
 
@@ -394,8 +407,8 @@ button:hover {
         height: 40px;
     }
 
-    .transaction-table td.receipt-column {
-        padding: 0.5rem 0;
+    .transaction-table tr {
+        padding: 0.5rem; /* 더 작은 화면에서 패딩 축소 */
     }
 }
 
