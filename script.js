@@ -235,5 +235,58 @@ function filterTransactions() {
     loadTransactions();
 }
 
+// 새 거래 추가 함수
+async function addTransaction() {
+    try {
+        const date = document.getElementById('transactionDate').value.replace(/-/g, '');
+        const type = document.getElementById('transactionType').value;
+        const description = document.getElementById('transactionDescription').value;
+        const amount = parseInt(document.getElementById('transactionAmount').value);
+
+        if (!date || !type || !description || !amount) {
+            alert('모든 필드를 입력해주세요.');
+            return;
+        }
+
+        const transaction = {
+            date,
+            type,
+            description,
+            amount
+        };
+
+        // Firestore에 저장
+        const docRef = await db.collection('transactions').add(transaction);
+        console.log('거래 추가됨:', docRef.id);
+
+        // 모달 닫기
+        const modal = bootstrap.Modal.getInstance(document.getElementById('addTransactionModal'));
+        modal.hide();
+
+        // 폼 초기화
+        document.getElementById('transactionForm').reset();
+
+        // 데이터 다시 로드
+        await loadTransactions();
+
+        alert('거래가 추가되었습니다.');
+
+    } catch (error) {
+        console.error('거래 추가 오류:', error);
+        alert('거래를 추가하는 중 오류가 발생했습니다.');
+    }
+}
+
+// 모달이 닫힐 때 폼 초기화
+document.getElementById('addTransactionModal').addEventListener('hidden.bs.modal', function () {
+    document.getElementById('transactionForm').reset();
+});
+
+// 날짜 입력 필드 기본값 설정
+document.getElementById('addTransactionModal').addEventListener('show.bs.modal', function () {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('transactionDate').value = today;
+});
+
 // 페이지 로드 시 초기화
 document.addEventListener('DOMContentLoaded', loadInitialData);
