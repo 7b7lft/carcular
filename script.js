@@ -177,49 +177,62 @@ function displayTransactions() {
     const transactionList = document.getElementById('transactionList');
     if (!transactionList) return;
 
-    if (transactions.length === 0) {
-        transactionList.innerHTML = '<p class="text-center my-3">거래 내역이 없습니다.</p>';
-        return;
-    }
-
     let html = `
-        <table class="table table-hover">
-            <thead>
-                <tr>
-                    <th>날짜</th>
-                    <th>내용</th>
-                    <th>구분</th>
-                    <th class="text-end">금액</th>
-                </tr>
-            </thead>
-            <tbody>
+        <div class="table-responsive">
+            <table class="table transaction-table">
+                <thead>
+                    <tr>
+                        <th>날짜</th>
+                        <th>내용</th>
+                        <th>구분</th>
+                        <th>금액</th>
+                        <th class="receipt-column">영수증</th>
+                        <th class="action-column">작업</th>
+                    </tr>
+                </thead>
+                <tbody>
     `;
 
     transactions.forEach(transaction => {
-        const date = transaction.date.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3');
-        const type = transaction.type === 'income' ? '수입' : '지출';
-        const amount = transaction.amount.toLocaleString();
-
         html += `
             <tr>
-                <td>${date}</td>
-                <td>${transaction.description}</td>
-                <td>${type}</td>
-                <td class="text-end ${transaction.type === 'income' ? 'text-success' : 'text-danger'}">${amount}원</td>
+                <td data-label="날짜">${transaction.date}</td>
+                <td data-label="내용">${transaction.description}</td>
+                <td data-label="구분" class="${transaction.type === 'income' ? 'text-success' : 'text-danger'}">
+                    ${transaction.type === 'income' ? '수입' : '지출'}
+                </td>
+                <td data-label="금액" class="${transaction.type === 'income' ? 'text-success' : 'text-danger'}">
+                    ${transaction.amount.toLocaleString()}원
+                </td>
+                <td data-label="영수증" class="receipt-column">
+                    ${transaction.receiptUrl 
+                        ? `<img src="${transaction.receiptUrl}" 
+                             class="receipt-thumbnail" 
+                             onclick="viewReceipt('${transaction.receiptUrl}')"
+                             alt="영수증">`
+                        : '<div class="no-receipt-wrapper"><span class="no-receipt">없음</span></div>'}
+                </td>
+                <td data-label="작업" class="action-column">
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary" onclick="openEditModal('${transaction.id}')">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-outline-danger" onclick="deleteTransaction('${transaction.id}')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </td>
             </tr>
         `;
     });
 
-    html += `
-            </tbody>
-        </table>
-    `;
-
+    html += '</tbody></table></div>';
     transactionList.innerHTML = html;
 }
 
 // 요약 정보 업데이트
 function updateSummary() {
+    // 현재 표시된 거래 내역만 사용하여 계산
     const totalIncome = transactions
         .filter(t => t.type === 'income')
         .reduce((sum, t) => sum + t.amount, 0);
@@ -229,10 +242,41 @@ function updateSummary() {
         .reduce((sum, t) => sum + t.amount, 0);
     
     const balance = totalIncome - totalExpense;
-
-    document.getElementById('totalIncome').textContent = totalIncome.toLocaleString() + '원';
-    document.getElementById('totalExpense').textContent = totalExpense.toLocaleString() + '원';
-    document.getElementById('balance').textContent = balance.toLocaleString() + '원';
+    
+    // 요약 카드 업데이트
+    const summaryHtml = `
+        <div class="row">
+            <div class="col-md-4 mb-3">
+                <div class="card bg-success text-white h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">총 수입</h5>
+                        <p class="card-text">${totalIncome.toLocaleString()}원</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card bg-danger text-white h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">총 지출</h5>
+                        <p class="card-text">${totalExpense.toLocaleString()}원</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card ${balance >= 0 ? 'bg-info' : 'bg-warning'} text-white h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">잔액</h5>
+                        <p class="card-text">${balance.toLocaleString()}원</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const summaryElement = document.getElementById('summary');
+    if (summaryElement) {
+        summaryElement.innerHTML = summaryHtml;
+    }
 }
 
 // 로딩 표시
@@ -380,8 +424,6 @@ function updateMonthFilter() {
 async function filterTransactions() {
     try {
         showLoading();
-        console.log('필터링 시작 - 현재 연도:', currentYear);
-        
         let query = db.collection('transactions');
         
         // 메인 연도 필터 적용
@@ -395,22 +437,17 @@ async function filterTransactions() {
             const monthEndDate = `${currentYear}${month}31`;
             query = query.where('date', '>=', monthStartDate)
                         .where('date', '<=', monthEndDate);
-            console.log('월 필터 적용:', month);
         } else {
+            // 월 필터가 없을 경우 연도 전체 조회
             query = query.where('date', '>=', startDate)
                         .where('date', '<=', endDate);
-            console.log('연도 전체 조회:', currentYear);
         }
         
         const snapshot = await query.get();
-        console.log('조회된 데이터 수:', snapshot.size);
-        
         transactions = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         }));
-        
-        console.log('처리된 거래 내역:', transactions.length);
         
         // 날짜순 정렬
         transactions.sort((a, b) => b.date.localeCompare(a.date));
@@ -564,11 +601,44 @@ async function changeMainYear() {
     await filterTransactions();
 }
 
+// 사용 가능한 연도 업데이트 함수
+async function updateAvailableYears() {
+    try {
+        const snapshot = await db.collection('transactions').get();
+        availableYears.clear();
+        
+        snapshot.docs.forEach(doc => {
+            const year = doc.data().date.substring(0, 4);
+            availableYears.add(year);
+        });
+        
+        // 연도 필터 업데이트
+        const mainYearFilter = document.getElementById('mainYearFilter');
+        if (mainYearFilter) {
+            const years = Array.from(availableYears).sort((a, b) => b - a); // 내림차순 정렬
+            let html = '';
+            years.forEach(year => {
+                html += `<option value="${year}">${year}년</option>`;
+            });
+            mainYearFilter.innerHTML = html;
+            
+            // 현재 연도가 있으면 선택, 없으면 가장 최근 연도 선택
+            if (availableYears.has(currentYear)) {
+                mainYearFilter.value = currentYear;
+            } else if (years.length > 0) {
+                currentYear = years[0];
+                mainYearFilter.value = currentYear;
+            }
+        }
+    } catch (error) {
+        console.error('사용 가능한 연도 업데이트 오류:', error);
+    }
+}
+
 // 앱 초기화 함수 수정
 async function initializeApp() {
     try {
-        initMainYearFilter();
-        // 초기 데이터 로드
+        await updateAvailableYears();
         await filterTransactions();
     } catch (error) {
         console.error('앱 초기화 오류:', error);
