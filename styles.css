@@ -596,3 +596,29 @@ button:hover {
         gap: 0.25rem;
     }
 }
+
+/* 메인 연도 필터 스타일 */
+#mainYearFilter {
+    min-width: 100px;
+    font-size: 1.1rem;
+    padding: 0.3rem 1.5rem 0.3rem 0.75rem;
+    border-radius: 4px;
+}
+
+/* 모바일 환경 스타일 */
+@media screen and (max-width: 576px) {
+    .container .d-flex {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: stretch !important;
+    }
+    
+    .container .d-flex button {
+        width: 100%;
+    }
+    
+    #mainYearFilter {
+        font-size: 1rem;
+        padding: 0.25rem 1.5rem 0.25rem 0.75rem;
+    }
+}
