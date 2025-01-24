@@ -380,6 +380,8 @@ function updateMonthFilter() {
 async function filterTransactions() {
     try {
         showLoading();
+        console.log('필터링 시작 - 현재 연도:', currentYear);
+        
         let query = db.collection('transactions');
         
         // 메인 연도 필터 적용
@@ -393,17 +395,22 @@ async function filterTransactions() {
             const monthEndDate = `${currentYear}${month}31`;
             query = query.where('date', '>=', monthStartDate)
                         .where('date', '<=', monthEndDate);
+            console.log('월 필터 적용:', month);
         } else {
-            // 월 필터가 없을 경우 연도 전체 조회
             query = query.where('date', '>=', startDate)
                         .where('date', '<=', endDate);
+            console.log('연도 전체 조회:', currentYear);
         }
         
         const snapshot = await query.get();
+        console.log('조회된 데이터 수:', snapshot.size);
+        
         transactions = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         }));
+        
+        console.log('처리된 거래 내역:', transactions.length);
         
         // 날짜순 정렬
         transactions.sort((a, b) => b.date.localeCompare(a.date));
