@@ -462,3 +462,72 @@ function toggleTransactionList() {
     
     isTransactionListVisible = !isTransactionListVisible;
 }
+
+// PDF 내보내기 함수
+async function exportToPDF(event) {
+    if (event) {
+        event.stopPropagation();
+    }
+
+    // 현재 필터 상태 가져오기
+    const year = document.getElementById('yearFilter').value;
+    const month = document.getElementById('monthFilter').value;
+    
+    // PDF 제목 설정
+    let title = '거래내역';
+    if (year) {
+        title += ` (${year}년`;
+        if (month) {
+            title += ` ${month}월`;
+        }
+        title += ')';
+    }
+
+    // PDF로 변환할 임시 요소 생성
+    const element = document.createElement('div');
+    element.innerHTML = `
+        <div style="padding: 20px;">
+            <h2 style="text-align: center; margin-bottom: 20px;">${title}</h2>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background-color: #f8f9fa;">
+                        <th style="border: 1px solid #dee2e6; padding: 8px;">날짜</th>
+                        <th style="border: 1px solid #dee2e6; padding: 8px;">내용</th>
+                        <th style="border: 1px solid #dee2e6; padding: 8px;">구분</th>
+                        <th style="border: 1px solid #dee2e6; padding: 8px;">금액</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${transactions.map(transaction => `
+                        <tr>
+                            <td style="border: 1px solid #dee2e6; padding: 8px;">${transaction.date}</td>
+                            <td style="border: 1px solid #dee2e6; padding: 8px;">${transaction.description}</td>
+                            <td style="border: 1px solid #dee2e6; padding: 8px;">${transaction.type === 'income' ? '수입' : '지출'}</td>
+                            <td style="border: 1px solid #dee2e6; padding: 8px; text-align: right;">${transaction.amount.toLocaleString()}원</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    // PDF 옵션 설정
+    const opt = {
+        margin: 1,
+        filename: `${title}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    try {
+        showLoading();
+        // PDF 생성 및 다운로드
+        await html2pdf().set(opt).from(element).save();
+    } catch (error) {
+        console.error('PDF 생성 오류:', error);
+        alert('PDF 생성 중 오류가 발생했습니다.');
+    } finally {
+        hideLoading();
+    }
+}
