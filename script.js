@@ -247,18 +247,22 @@ function getFilteredTransactions() {
 
 // updateUI 함수 수정
 function updateUI() {
-    const desktopTransactionList = document.getElementById('desktopTransactionList');
-    const mobileTransactionList = document.getElementById('mobileTransactionList');
+    // 요소 가져오기 전에 존재 여부 확인
+    const desktopList = document.getElementById('desktopTransactionList');
+    const mobileList = document.getElementById('mobileTransactionList');
     const totalBalance = document.getElementById('totalBalance');
     const totalIncome = document.getElementById('totalIncome');
     const totalExpense = document.getElementById('totalExpense');
 
+    // 요소가 없으면 함수 종료
+    if (!desktopList || !mobileList) {
+        console.error('Transaction list elements not found');
+        return;
+    }
+
     // 필터링된 거래 내역 가져오기
     const filteredTransactions = getFilteredTransactions();
     filteredTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-    // 모바일 환경인지 확인
-    const isMobile = window.innerWidth <= 768;
 
     if (filteredTransactions.length === 0) {
         const emptyMessage = `
@@ -268,11 +272,11 @@ function updateUI() {
             </div>
         `;
         
-        desktopTransactionList.innerHTML = `<tr><td colspan="6">${emptyMessage}</td></tr>`;
-        mobileTransactionList.innerHTML = emptyMessage;
+        desktopList.innerHTML = `<tr><td colspan="6">${emptyMessage}</td></tr>`;
+        mobileList.innerHTML = emptyMessage;
     } else {
         // 모바일용 카드 UI
-        mobileTransactionList.innerHTML = `
+        mobileList.innerHTML = `
             <div class="transaction-cards">
                 ${filteredTransactions.map(transaction => `
                     <div class="transaction-card">
@@ -312,7 +316,7 @@ function updateUI() {
         `;
 
         // 데스크톱용 테이블 UI
-        desktopTransactionList.innerHTML = filteredTransactions.map(transaction => `
+        desktopList.innerHTML = filteredTransactions.map(transaction => `
             <tr>
                 <td class="date-cell">${transaction.date}</td>
                 <td class="type-cell"><span class="badge ${transaction.type === '수입' ? 'bg-success' : 'bg-danger'}">${transaction.type}</span></td>
@@ -342,20 +346,23 @@ function updateUI() {
     }
 
     // 합계 계산 및 표시
-    const income = filteredTransactions
-        .filter(transaction => transaction.type === '수입')
-        .reduce((total, transaction) => total + transaction.amount, 0);
+    if (totalBalance && totalIncome && totalExpense) {
+        const income = filteredTransactions
+            .filter(transaction => transaction.type === '수입')
+            .reduce((total, transaction) => total + transaction.amount, 0);
 
-    const expense = filteredTransactions
-        .filter(transaction => transaction.type === '지출')
-        .reduce((total, transaction) => total + transaction.amount, 0);
+        const expense = filteredTransactions
+            .filter(transaction => transaction.type === '지출')
+            .reduce((total, transaction) => total + transaction.amount, 0);
 
-    const balance = income - expense;
+        const balance = income - expense;
 
-    totalBalance.textContent = formatCurrency(balance);
-    totalIncome.textContent = formatCurrency(income);
-    totalExpense.textContent = formatCurrency(expense);
+        totalBalance.textContent = formatCurrency(balance);
+        totalIncome.textContent = formatCurrency(income);
+        totalExpense.textContent = formatCurrency(expense);
+    }
     
+    // 년도 필터 설정
     setupYearFilter();
 }
 
@@ -370,7 +377,7 @@ window.addEventListener('unhandledrejection', function(event) {
 });
 
 document.getElementById('transactionForm').addEventListener('submit', addTransaction);
-window.addEventListener('load', () => {
+document.addEventListener('DOMContentLoaded', () => {
     loadTransactions().then(() => {
         setupYearFilter();
     });
