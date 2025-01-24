@@ -75,9 +75,12 @@
         </div>
 
         <div class="card">
-            <div class="card-header bg-info text-white">
+            <div class="card-header bg-info text-white" role="button" onclick="toggleTransactionList()" style="cursor: pointer;">
                 <div class="d-flex justify-content-between align-items-center">
-                    <h5 class="card-title mb-0">거래 내역</h5>
+                    <div class="d-flex align-items-center gap-2">
+                        <h5 class="card-title mb-0">거래 내역</h5>
+                        <i id="toggleIcon" class="bi bi-chevron-up"></i>
+                    </div>
                     <div class="filter-group">
                         <select id="yearFilter" class="form-select form-select-sm">
                             <option value="">전체 연도</option>
@@ -97,11 +100,11 @@
                             <option value="11">11월</option>
                             <option value="12">12월</option>
                         </select>
-                        <button onclick="filterTransactions()" class="btn btn-light btn-sm">조회</button>
+                        <button onclick="filterTransactions(event)" class="btn btn-light btn-sm">조회</button>
                     </div>
                 </div>
             </div>
-            <div class="card-body">
+            <div id="transactionListWrapper" class="card-body">
                 <div id="transactionList" class="table-responsive"></div>
             </div>
         </div>
