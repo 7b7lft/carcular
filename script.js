@@ -17,6 +17,7 @@ let receiptViewModal = null;
 let db = null;
 let editTransactionModal = null;
 let currentEditId = null;
+let availableYears = new Set();
 
 // Firebase 초기화 함수
 function initializeFirebase() {
@@ -79,6 +80,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 수정 모달 초기화
     editTransactionModal = new bootstrap.Modal(document.getElementById('editTransactionModal'));
+
+    // 연도 필터 이벤트 리스너
+    document.getElementById('yearFilter').addEventListener('change', updateMonthFilter);
+    document.getElementById('monthFilter').addEventListener('change', function() {
+        if (this.value && !document.getElementById('yearFilter').value) {
+            alert('연도를 먼저 선택해주세요.');
+            this.value = '';
+        }
+    });
 
     // 초기 데이터 로드
     loadTransactions();
@@ -145,16 +155,25 @@ async function loadTransactions() {
         const snapshot = await db.collection('transactions')
             .orderBy('date', 'desc')
             .get();
-
+        
         transactions = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         }));
-
+        
+        // 사용 가능한 연도 업데이트
+        availableYears.clear();
+        transactions.forEach(transaction => {
+            const year = transaction.date.substring(0, 4);
+            availableYears.add(year);
+        });
+        
+        updateYearFilter();
         displayTransactions();
         updateSummary();
     } catch (error) {
         console.error('거래 목록 로드 오류:', error);
+        alert('거래 목록을 불러오는 중 오류가 발생했습니다.');
     }
 }
 
@@ -345,6 +364,68 @@ async function deleteTransaction(transactionId) {
     } catch (error) {
         console.error('거래 삭제 오류:', error);
         alert('거래를 삭제하는 중 오류가 발생했습니다.');
+    } finally {
+        hideLoading();
+    }
+}
+
+// 연도 필터 옵션 업데이트
+function updateYearFilter() {
+    const yearFilter = document.getElementById('yearFilter');
+    const years = Array.from(availableYears).sort((a, b) => b - a); // 내림차순 정렬
+    
+    let html = '<option value="">전체 연도</option>';
+    years.forEach(year => {
+        html += `<option value="${year}">${year}년</option>`;
+    });
+    
+    yearFilter.innerHTML = html;
+}
+
+// 월 필터 상태 업데이트
+function updateMonthFilter() {
+    const monthFilter = document.getElementById('monthFilter');
+    const yearFilter = document.getElementById('yearFilter');
+    
+    if (!yearFilter.value) {
+        monthFilter.value = '';
+    }
+    monthFilter.disabled = !yearFilter.value;
+}
+
+// 거래 필터링
+async function filterTransactions() {
+    const year = document.getElementById('yearFilter').value;
+    const month = document.getElementById('monthFilter').value;
+    
+    try {
+        showLoading();
+        let query = db.collection('transactions');
+        
+        if (year) {
+            const startDate = month 
+                ? `${year}-${month}-01`
+                : `${year}-01-01`;
+            const endDate = month
+                ? `${year}-${month}-31`
+                : `${year}-12-31`;
+            
+            query = query.where('date', '>=', startDate)
+                        .where('date', '<=', endDate);
+        }
+        
+        const snapshot = await query.orderBy('date', 'desc').get();
+        
+        transactions = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+        
+        displayTransactions();
+        updateSummary();
+    } catch (error) {
+        console.error('거래 필터링 오류:', error);
+        alert('거래 목록을 필터링하는 중 오류가 발생했습니다.');
     } finally {
         hideLoading();
     }
