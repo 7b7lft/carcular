@@ -578,3 +578,17 @@ button:hover {
 }
 
 /* 나머지 기존 스타일 유지 */
+
+/* PDF 버튼 스타일 */
+.btn-light i {
+    margin-right: 4px;
+}
+
+@media screen and (max-width: 991px) {
+    .filter-group .btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.25rem;
+    }
+}
