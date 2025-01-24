@@ -270,6 +270,11 @@ button:hover {
     .transaction-table td[data-label="금액"] {
         font-weight: 600;
     }
+
+    /* 영수증 '없음' 텍스트 정렬 */
+    .transaction-table td.receipt-column .no-receipt {
+        margin-left: auto;
+    }
 }
 
 /* 버튼 아이콘 스타일 */
@@ -320,4 +325,13 @@ button:hover {
         width: 40px;
         height: 40px;
     }
+
+    .form-select-sm {
+        min-width: 90px;
+    }
+}
+
+/* 필터 스타일 */
+.form-select-sm {
+    min-width: 100px;
 }
