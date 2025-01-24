@@ -397,17 +397,18 @@ async function filterTransactions() {
         // 메인 연도 필터 적용
         const startDate = `${currentYear}0101`;
         const endDate = `${currentYear}1231`;
-        query = query.where('date', '>=', startDate)
-                    .where('date', '<=', endDate);
         
         // 월 필터 적용
         const month = document.getElementById('monthFilter').value;
         if (month) {
             const monthStartDate = `${currentYear}${month}01`;
             const monthEndDate = `${currentYear}${month}31`;
-            query = db.collection('transactions')
-                     .where('date', '>=', monthStartDate)
-                     .where('date', '<=', monthEndDate);
+            query = query.where('date', '>=', monthStartDate)
+                        .where('date', '<=', monthEndDate);
+        } else {
+            // 월 필터가 없을 경우 연도 전체 조회
+            query = query.where('date', '>=', startDate)
+                        .where('date', '<=', endDate);
         }
         
         const snapshot = await query.get();
@@ -573,3 +574,26 @@ async function changeMainYear() {
     // 데이터 다시 로드
     await filterTransactions();
 }
+
+// 앱 초기화 함수 수정
+async function initializeApp() {
+    try {
+        initMainYearFilter();
+        
+        // 연도 필터 동기화
+        const yearFilter = document.getElementById('yearFilter');
+        if (yearFilter) {
+            yearFilter.value = currentYear;
+        }
+        
+        // 초기 데이터 로드
+        await filterTransactions();
+    } catch (error) {
+        console.error('앱 초기화 오류:', error);
+    }
+}
+
+// DOMContentLoaded 이벤트
+document.addEventListener('DOMContentLoaded', function() {
+    initializeApp();
+});
