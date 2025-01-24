@@ -18,6 +18,7 @@ let db = null;
 let editTransactionModal = null;
 let currentEditId = null;
 let availableYears = new Set();
+let currentYear = new Date().getFullYear().toString();
 
 // Firebase 초기화 함수
 function initializeFirebase() {
@@ -83,6 +84,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 초기 데이터 로드
     loadTransactions();
+
+    // 메인 연도 필터 초기화
+    initMainYearFilter();
 });
 
 // 폼 제출 처리
@@ -391,27 +395,26 @@ async function filterTransactions() {
         showLoading();
         let query = db.collection('transactions');
         
-        const year = document.getElementById('yearFilter').value;
-        const month = document.getElementById('monthFilter').value;
+        // 메인 연도 필터 적용
+        const startDate = `${currentYear}0101`;
+        const endDate = `${currentYear}1231`;
+        query = query.where('date', '>=', startDate)
+                    .where('date', '<=', endDate);
         
-        if (year) {
-            const startDate = `${year}${month || '01'}01`;
-            const endDate = month 
-                ? `${year}${month}31` 
-                : `${year}1231`;
-            
-            query = query.where('date', '>=', startDate)
-                        .where('date', '<=', endDate);
+        const month = document.getElementById('monthFilter').value;
+        if (month) {
+            const monthStartDate = `${currentYear}${month}01`;
+            const monthEndDate = `${currentYear}${month}31`;
+            query = query.where('date', '>=', monthStartDate)
+                        .where('date', '<=', monthEndDate);
         }
         
-        // 날짜순 정렬을 위한 데이터 가져오기 및 정렬
         const snapshot = await query.get();
         transactions = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         }));
         
-        // JavaScript에서 정렬
         transactions.sort((a, b) => b.date.localeCompare(a.date));
         
         displayTransactions();
@@ -530,4 +533,38 @@ async function exportToPDF(event) {
     } finally {
         hideLoading();
     }
+}
+
+// 메인 연도 필터 초기화 함수
+function initMainYearFilter() {
+    const mainYearFilter = document.getElementById('mainYearFilter');
+    if (!mainYearFilter) return;
+
+    // 현재 연도부터 2020년까지의 옵션 생성
+    const currentYear = new Date().getFullYear();
+    let html = '';
+    for (let year = currentYear; year >= 2020; year--) {
+        html += `<option value="${year}">${year}년</option>`;
+    }
+    mainYearFilter.innerHTML = html;
+}
+
+// 메인 연도 변경 함수
+async function changeMainYear() {
+    const mainYearFilter = document.getElementById('mainYearFilter');
+    if (!mainYearFilter) return;
+
+    currentYear = mainYearFilter.value;
+    
+    // 거래내역 연도 필터 업데이트
+    const yearFilter = document.getElementById('yearFilter');
+    if (yearFilter) {
+        yearFilter.value = currentYear;
+    }
+
+    // 데이터 다시 로드
+    await filterTransactions();
+    
+    // 요약 정보 업데이트
+    updateSummary();
 }
