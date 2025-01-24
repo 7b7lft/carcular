@@ -9,9 +9,14 @@ const firebaseConfig = {
     measurementId: "G-YBWK7K8L5E"
 };
 
+// Firebase 초기화 및 설정
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const storage = firebase.storage();
+
+// Storage 설정
+const storageRef = storage.ref();
+
 let transactions = [];
 let editingId = null; // 현재 수정 중인 항목의 ID를 저장
 
@@ -34,7 +39,20 @@ async function uploadReceipt(file) {
     const fileRef = storageRef.child(`receipts/${timestamp}_${file.name}`);
     
     try {
-        await fileRef.put(file);
+        // 파일을 Blob으로 변환하여 업로드
+        const response = await fetch(URL.createObjectURL(file));
+        const blob = await response.blob();
+        
+        // 메타데이터 설정
+        const metadata = {
+            contentType: file.type,
+            customMetadata: {
+                'Access-Control-Allow-Origin': '*'
+            }
+        };
+
+        // 파일 업로드
+        await fileRef.put(blob, metadata);
         const downloadURL = await fileRef.getDownloadURL();
         return downloadURL;
     } catch (error) {
@@ -140,14 +158,18 @@ async function deleteTransaction(id) {
     try {
         const transaction = transactions.find(t => t.id === id);
         
-        // 영수증 이미지가 있다면 Storage에서도 삭제
         if (transaction.receiptURL) {
-            const imageRef = storage.refFromURL(transaction.receiptURL);
-            await imageRef.delete();
+            try {
+                const imageRef = storage.refFromURL(transaction.receiptURL);
+                await imageRef.delete();
+            } catch (error) {
+                console.error("영수증 이미지 삭제 중 오류 발생:", error);
+                // 이미지 삭제 실패해도 계속 진행
+            }
         }
 
         await db.collection('transactions').doc(id).delete();
-        transactions = transactions.filter(transaction => transaction.id !== id);
+        transactions = transactions.filter(t => t.id !== id);
         updateUI();
     } catch (error) {
         console.error("거래 삭제 중 오류 발생:", error);
@@ -214,20 +236,11 @@ function updateUI() {
     totalExpense.textContent = formatCurrency(expense);
 }
 
-// Firebase Storage CORS 오류 해결을 위한 설정
-const storageRef = storage.ref();
-storageRef.constructor.prototype.put = async function(file) {
-    const response = await fetch(file);
-    const blob = await response.blob();
-    const metadata = {
-        contentType: file.type,
-        customMetadata: {
-            'Access-Control-Allow-Origin': '*'
-        }
-    };
-    return this.put(blob, metadata);
-};
+// 에러 처리를 위한 전역 설정
+window.addEventListener('unhandledrejection', function(event) {
+    console.error('Unhandled promise rejection:', event.reason);
+    alert('오류가 발생했습니다. 페이지를 새로고침하고 다시 시도해주세요.');
+});
 
 document.getElementById('transactionForm').addEventListener('submit', addTransaction);
 window.addEventListener('load', loadTransactions);
-
