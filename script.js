@@ -247,7 +247,8 @@ function getFilteredTransactions() {
 
 // updateUI 함수 수정
 function updateUI() {
-    const transactionList = document.getElementById('transactionList');
+    const desktopTransactionList = document.getElementById('desktopTransactionList');
+    const mobileTransactionList = document.getElementById('mobileTransactionList');
     const totalBalance = document.getElementById('totalBalance');
     const totalIncome = document.getElementById('totalIncome');
     const totalExpense = document.getElementById('totalExpense');
@@ -260,99 +261,84 @@ function updateUI() {
     const isMobile = window.innerWidth <= 768;
 
     if (filteredTransactions.length === 0) {
-        if (isMobile) {
-            transactionList.innerHTML = `
-                <div class="text-center py-4 text-muted">
-                    <i class="bi bi-inbox fs-2 mb-2"></i>
-                    <p class="mb-0">내역이 없습니다</p>
-                </div>
-            `;
-        } else {
-            transactionList.innerHTML = `
-                <tr>
-                    <td colspan="6" class="text-center py-4 text-muted">
-                        <div class="d-flex flex-column align-items-center">
-                            <i class="bi bi-inbox fs-2 mb-2"></i>
-                            <p class="mb-0">내역이 없습니다</p>
-                        </div>
-                    </td>
-                </tr>
-            `;
-        }
+        const emptyMessage = `
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-inbox fs-2 mb-2"></i>
+                <p class="mb-0">내역이 없습니다</p>
+            </div>
+        `;
+        
+        desktopTransactionList.innerHTML = `<tr><td colspan="6">${emptyMessage}</td></tr>`;
+        mobileTransactionList.innerHTML = emptyMessage;
     } else {
-        if (isMobile) {
-            // 모바일용 카드 UI
-            transactionList.innerHTML = `
-                <div class="transaction-cards">
-                    ${filteredTransactions.map(transaction => `
-                        <div class="transaction-card">
-                            <div class="card-header">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <span class="date">${transaction.date}</span>
-                                    <span class="badge ${transaction.type === '수입' ? 'bg-success' : 'bg-danger'}">${transaction.type}</span>
-                                </div>
-                            </div>
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-start mb-2">
-                                    <div class="description">${transaction.description}</div>
-                                    <div class="amount text-${transaction.type === '수입' ? 'success' : 'danger'} fw-bold">
-                                        ${formatCurrency(transaction.amount)}
-                                    </div>
-                                </div>
-                                ${transaction.receiptData ? `
-                                    <div class="receipt-image mb-2">
-                                        <img src="${transaction.receiptData}" 
-                                             alt="영수증" 
-                                             class="receipt-thumbnail-mobile" 
-                                             onclick="showReceiptModal('${transaction.receiptData}')">
-                                    </div>
-                                ` : ''}
-                                <div class="d-flex gap-2 justify-content-end">
-                                    <button class="btn btn-edit btn-sm" onclick="editTransaction('${transaction.id}')">
-                                        <i class="bi bi-pencil-square"></i> 수정
-                                    </button>
-                                    <button class="btn btn-danger btn-sm" onclick="deleteTransaction('${transaction.id}')">
-                                        <i class="bi bi-trash3-fill"></i> 삭제
-                                    </button>
-                                </div>
+        // 모바일용 카드 UI
+        mobileTransactionList.innerHTML = `
+            <div class="transaction-cards">
+                ${filteredTransactions.map(transaction => `
+                    <div class="transaction-card">
+                        <div class="card-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="date">${transaction.date}</span>
+                                <span class="badge ${transaction.type === '수입' ? 'bg-success' : 'bg-danger'}">${transaction.type}</span>
                             </div>
                         </div>
-                    `).join('')}
-                </div>
-            `;
-        } else {
-            // 데스크톱용 테이블 UI (기존 코드)
-            transactionList.innerHTML = '';
-            filteredTransactions.forEach(transaction => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td class="date-cell">${transaction.date}</td>
-                    <td class="type-cell"><span class="badge ${transaction.type === '수입' ? 'bg-success' : 'bg-danger'}">${transaction.type}</span></td>
-                    <td class="desc-cell">${transaction.description}</td>
-                    <td class="amount-cell text-${transaction.type === '수입' ? 'success' : 'danger'}">${formatCurrency(transaction.amount)}</td>
-                    <td class="receipt-cell">
-                        ${transaction.receiptData ? 
-                            `<img src="${transaction.receiptData}" 
-                                 alt="영수증" 
-                                 class="receipt-thumbnail" 
-                                 onclick="showReceiptModal('${transaction.receiptData}')"
-                                 style="cursor: pointer;">` : 
-                            '-'}
-                    </td>
-                    <td class="action-cell">
-                        <div class="d-flex gap-1 action-buttons">
-                            <button class="btn btn-edit btn-sm" onclick="editTransaction('${transaction.id}')" title="수정">
-                                <i class="bi bi-pencil-square me-1"></i>수정
-                            </button>
-                            <button class="btn btn-danger btn-sm" onclick="deleteTransaction('${transaction.id}')" title="삭제">
-                                <i class="bi bi-trash3-fill me-1"></i>삭제
-                            </button>
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div class="description">${transaction.description}</div>
+                                <div class="amount text-${transaction.type === '수입' ? 'success' : 'danger'} fw-bold">
+                                    ${formatCurrency(transaction.amount)}
+                                </div>
+                            </div>
+                            ${transaction.receiptData ? `
+                                <div class="receipt-image mb-2">
+                                    <img src="${transaction.receiptData}" 
+                                         alt="영수증" 
+                                         class="receipt-thumbnail-mobile" 
+                                         onclick="showReceiptModal('${transaction.receiptData}')">
+                                </div>
+                            ` : ''}
+                            <div class="d-flex gap-2 justify-content-end">
+                                <button class="btn btn-edit btn-sm" onclick="editTransaction('${transaction.id}')">
+                                    <i class="bi bi-pencil-square"></i> 수정
+                                </button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteTransaction('${transaction.id}')">
+                                    <i class="bi bi-trash3-fill"></i> 삭제
+                                </button>
+                            </div>
                         </div>
-                    </td>
-                `;
-                transactionList.appendChild(row);
-            });
-        }
+                    </div>
+                `).join('')}
+            </div>
+        `;
+
+        // 데스크톱용 테이블 UI
+        desktopTransactionList.innerHTML = filteredTransactions.map(transaction => `
+            <tr>
+                <td class="date-cell">${transaction.date}</td>
+                <td class="type-cell"><span class="badge ${transaction.type === '수입' ? 'bg-success' : 'bg-danger'}">${transaction.type}</span></td>
+                <td class="desc-cell">${transaction.description}</td>
+                <td class="amount-cell text-${transaction.type === '수입' ? 'success' : 'danger'}">${formatCurrency(transaction.amount)}</td>
+                <td class="receipt-cell">
+                    ${transaction.receiptData ? 
+                        `<img src="${transaction.receiptData}" 
+                             alt="영수증" 
+                             class="receipt-thumbnail" 
+                             onclick="showReceiptModal('${transaction.receiptData}')"
+                             style="cursor: pointer;">` : 
+                        '-'}
+                </td>
+                <td class="action-cell">
+                    <div class="d-flex gap-1 action-buttons">
+                        <button class="btn btn-edit btn-sm" onclick="editTransaction('${transaction.id}')" title="수정">
+                            <i class="bi bi-pencil-square me-1"></i>수정
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteTransaction('${transaction.id}')" title="삭제">
+                            <i class="bi bi-trash3-fill me-1"></i>삭제
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
     }
 
     // 합계 계산 및 표시
