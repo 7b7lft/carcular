@@ -14,6 +14,7 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 let transactions = [];
 let editingId = null;
+let editModal = null;
 
 // 이미지를 Base64로 변환
 function getBase64(file) {
@@ -166,21 +167,34 @@ async function addTransaction(e) {
 
 // 수정 모드로 전환
 function editTransaction(id) {
+    editingId = id;
     const transaction = transactions.find(t => t.id === id);
+    
     if (!transaction) return;
 
-    document.getElementById('date').value = transaction.date;
-    document.getElementById('type').value = transaction.type;
-    document.getElementById('description').value = transaction.description;
-    document.getElementById('amount').value = transaction.amount;
-    
-    document.getElementById('formTitle').textContent = '항목 수정';
-    document.getElementById('submitBtn').textContent = '수정';
-    document.getElementById('cancelBtn').style.display = 'block';
-    
-    editingId = id;
-    
-    document.querySelector('.input-section').scrollIntoView({ behavior: 'smooth' });
+    // 폼 필드에 데이터 설정
+    document.getElementById('editDate').value = transaction.date;
+    document.getElementById('editType').value = transaction.type;
+    document.getElementById('editDescription').value = transaction.description;
+    document.getElementById('editAmount').value = transaction.amount.toLocaleString('ko-KR');
+
+    // 현재 영수증 이미지 표시
+    const previewDiv = document.getElementById('currentReceiptPreview');
+    if (transaction.receiptData) {
+        previewDiv.innerHTML = `
+            <div class="mt-2">
+                <p class="mb-2">현재 영수증:</p>
+                <img src="${transaction.receiptData}" 
+                     alt="현재 영수증" 
+                     class="img-thumbnail" 
+                     style="max-height: 200px;">
+            </div>
+        `;
+    } else {
+        previewDiv.innerHTML = '';
+    }
+
+    editModal.show();
 }
 
 // 수정 취소
@@ -378,6 +392,7 @@ window.addEventListener('unhandledrejection', function(event) {
 
 document.getElementById('transactionForm').addEventListener('submit', addTransaction);
 document.addEventListener('DOMContentLoaded', () => {
+    editModal = new bootstrap.Modal(document.getElementById('editModal'));
     loadTransactions().then(() => {
         setupYearFilter();
     });
@@ -394,3 +409,56 @@ function formatAmount(input) {
 
 // 윈도우 리사이즈 시 UI 업데이트
 window.addEventListener('resize', updateUI);
+
+// 수정 내용 저장
+async function saveEdit() {
+    try {
+        const editForm = document.getElementById('editForm');
+        if (!editForm.checkValidity()) {
+            editForm.reportValidity();
+            return;
+        }
+
+        const transaction = {
+            date: document.getElementById('editDate').value,
+            type: document.getElementById('editType').value,
+            description: document.getElementById('editDescription').value,
+            amount: parseInt(document.getElementById('editAmount').value.replace(/,/g, '')),
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        const receiptFile = document.getElementById('editReceipt').files[0];
+        const existingTransaction = transactions.find(t => t.id === editingId);
+
+        if (receiptFile) {
+            // 새 영수증 이미지가 있는 경우
+            try {
+                const receiptData = await optimizeImage(receiptFile);
+                transaction.receiptData = receiptData;
+            } catch (error) {
+                alert("영수증 이미지 처리 중 오류가 발생했습니다.");
+                throw error;
+            }
+        } else if (existingTransaction.receiptData) {
+            // 기존 영수증 유지
+            transaction.receiptData = existingTransaction.receiptData;
+        }
+
+        // Firestore 업데이트
+        await db.collection('transactions').doc(editingId).update(transaction);
+
+        // 로컬 데이터 업데이트
+        const index = transactions.findIndex(t => t.id === editingId);
+        transactions[index] = { ...transaction, id: editingId };
+
+        // UI 업데이트
+        updateUI();
+        editModal.hide();
+        
+        // 성공 메시지
+        alert('거래 내역이 수정되었습니다.');
+    } catch (error) {
+        console.error("수정 중 오류 발생:", error);
+        alert("수정 중 오류가 발생했습니다.");
+    }
+}
