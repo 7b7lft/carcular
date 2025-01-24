@@ -555,3 +555,35 @@ button:hover {
         min-width: 100px;
     }
 }
+
+/* 아코디언 스타일 */
+.card-header[role="button"]:hover {
+    background-color: #0dcaf0 !important; /* 호버 시 약간 밝은 색상 */
+}
+
+#toggleIcon {
+    transition: transform 0.3s ease;
+    font-size: 1.2rem;
+}
+
+.bi-chevron-down {
+    transform: rotate(180deg);
+}
+
+/* 필터 그룹이 클릭 이벤트를 방해하지 않도록 설정 */
+.filter-group {
+    position: relative;
+    z-index: 1;
+}
+
+/* 모바일 환경에서의 스타일 조정 */
+@media screen and (max-width: 991px) {
+    .card-header .d-flex {
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    #toggleIcon {
+        font-size: 1rem;
+    }
+}
