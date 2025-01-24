@@ -60,151 +60,106 @@ async function updateAvailableYears() {
     }
 }
 
-// 거래 내역 필터링
-async function filterTransactions() {
+// 초기 데이터 로드
+async function loadInitialData() {
     try {
-        showLoading();
-        console.log('필터링 시작:', currentYear);
+        // 사용 가능한 연도 조회
+        const snapshot = await db.collection('transactions').get();
+        const years = new Set();
         
-        // 기본 쿼리
+        snapshot.forEach(doc => {
+            const year = doc.data().date.substring(0, 4);
+            years.add(year);
+        });
+        
+        // 연도 필터 업데이트
+        const mainYearFilter = document.getElementById('mainYearFilter');
+        if (mainYearFilter) {
+            const sortedYears = Array.from(years).sort((a, b) => b - a);
+            mainYearFilter.innerHTML = sortedYears.map(year => 
+                `<option value="${year}">${year}년</option>`
+            ).join('');
+            
+            // 가장 최근 연도 선택
+            if (sortedYears.length > 0) {
+                currentYear = sortedYears[0];
+                mainYearFilter.value = currentYear;
+            }
+        }
+        
+        // 초기 데이터 로드
+        await loadTransactions();
+        
+    } catch (error) {
+        console.error('초기 데이터 로드 오류:', error);
+        alert('데이터를 불러오는 중 오류가 발생했습니다.');
+    }
+}
+
+// 거래 내역 로드
+async function loadTransactions() {
+    try {
         const startDate = `${currentYear}0101`;
         const endDate = `${currentYear}1231`;
-        
-        // 월 필터 적용
         const month = document.getElementById('monthFilter').value;
-        let querySnapshot;
+        
+        let query = db.collection('transactions');
         
         if (month) {
             const monthStartDate = `${currentYear}${month}01`;
             const monthEndDate = `${currentYear}${month}31`;
-            console.log('월별 조회:', monthStartDate, '~', monthEndDate);
-            
-            querySnapshot = await db.collection('transactions')
-                .where('date', '>=', monthStartDate)
-                .where('date', '<=', monthEndDate)
-                .get();
+            query = query.where('date', '>=', monthStartDate)
+                        .where('date', '<=', monthEndDate);
         } else {
-            console.log('연도 조회:', startDate, '~', endDate);
-            
-            querySnapshot = await db.collection('transactions')
-                .where('date', '>=', startDate)
-                .where('date', '<=', endDate)
-                .get();
+            query = query.where('date', '>=', startDate)
+                        .where('date', '<=', endDate);
         }
-
-        console.log('조회된 문서 수:', querySnapshot.size);
         
-        // 데이터 처리
+        const snapshot = await query.get();
         transactions = [];
-        querySnapshot.forEach(doc => {
+        
+        snapshot.forEach(doc => {
             const data = doc.data();
-            console.log('문서 데이터:', data);
-            
             transactions.push({
                 id: doc.id,
-                date: data.date || '',
-                description: data.description || '',
-                type: data.type || '',
-                amount: parseInt(data.amount) || 0
+                date: data.date,
+                description: data.description,
+                type: data.type,
+                amount: parseInt(data.amount)
             });
         });
-
-        console.log('처리된 거래:', transactions);
         
         // 날짜순 정렬
         transactions.sort((a, b) => b.date.localeCompare(a.date));
         
         // UI 업데이트
-        displayTransactions();
-        updateSummary();
+        updateUI();
         
     } catch (error) {
-        console.error('거래 필터링 오류:', error);
-        alert('데이터를 불러오는 중 오류가 발생했습니다.');
-    } finally {
-        hideLoading();
+        console.error('거래 내역 로드 오류:', error);
+        alert('거래 내역을 불러오는 중 오류가 발생했습니다.');
     }
 }
 
-// 거래 내역 표시
-function displayTransactions() {
-    const transactionList = document.getElementById('transactionList');
-    if (!transactionList) {
-        console.error('거래 내역 표시 영역을 찾을 수 없습니다.');
-        return;
-    }
-
-    console.log('거래 내역 표시 시작:', transactions.length, '건');
-
-    if (!transactions || transactions.length === 0) {
-        transactionList.innerHTML = '<p class="text-center my-3">거래 내역이 없습니다.</p>';
-        return;
-    }
-
-    let html = `
-        <table class="table table-hover">
-            <thead>
-                <tr>
-                    <th>날짜</th>
-                    <th>내용</th>
-                    <th>구분</th>
-                    <th class="text-end">금액</th>
-                </tr>
-            </thead>
-            <tbody>
-    `;
-
-    transactions.forEach(transaction => {
-        const date = transaction.date.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3');
-        const type = transaction.type === 'income' ? '수입' : '지출';
-        const amount = transaction.amount.toLocaleString();
-
-        html += `
-            <tr>
-                <td>${date}</td>
-                <td>${transaction.description}</td>
-                <td>${type}</td>
-                <td class="text-end ${transaction.type === 'income' ? 'text-success' : 'text-danger'}">${amount}원</td>
-            </tr>
-        `;
-    });
-
-    html += `
-            </tbody>
-        </table>
-    `;
-
-    transactionList.innerHTML = html;
-    console.log('거래 내역 표시 완료');
+// UI 업데이트
+function updateUI() {
+    updateSummary();
+    updateTransactionList();
 }
 
 // 요약 정보 업데이트
 function updateSummary() {
-    console.log('요약 정보 업데이트 시작');
-    
     const totalIncome = transactions
         .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + (t.amount || 0), 0);
+        .reduce((sum, t) => sum + t.amount, 0);
     
     const totalExpense = transactions
         .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + (t.amount || 0), 0);
+        .reduce((sum, t) => sum + t.amount, 0);
     
     const balance = totalIncome - totalExpense;
     
-    console.log('계산된 금액:', {
-        수입: totalIncome,
-        지출: totalExpense,
-        잔액: balance
-    });
-
-    const summaryElement = document.getElementById('summary');
-    if (!summaryElement) {
-        console.error('요약 정보 표시 영역을 찾을 수 없습니다.');
-        return;
-    }
-
-    summaryElement.innerHTML = `
+    document.getElementById('summary').innerHTML = `
         <div class="row">
             <div class="col-md-4 mb-3">
                 <div class="card bg-success text-white h-100">
@@ -232,34 +187,53 @@ function updateSummary() {
             </div>
         </div>
     `;
-    
-    console.log('요약 정보 업데이트 완료');
 }
 
-// 연도 변경 처리
-async function changeMainYear() {
-    const mainYearFilter = document.getElementById('mainYearFilter');
-    if (!mainYearFilter) return;
-
-    currentYear = mainYearFilter.value;
+// 거래 내역 목록 업데이트
+function updateTransactionList() {
+    const transactionList = document.getElementById('transactionList');
     
-    const monthFilter = document.getElementById('monthFilter');
-    if (monthFilter) {
-        monthFilter.value = '';
+    if (transactions.length === 0) {
+        transactionList.innerHTML = '<p class="text-center my-3">거래 내역이 없습니다.</p>';
+        return;
     }
-
-    await filterTransactions();
+    
+    transactionList.innerHTML = `
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>날짜</th>
+                    <th>내용</th>
+                    <th>구분</th>
+                    <th class="text-end">금액</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${transactions.map(transaction => `
+                    <tr>
+                        <td>${transaction.date.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')}</td>
+                        <td>${transaction.description}</td>
+                        <td>${transaction.type === 'income' ? '수입' : '지출'}</td>
+                        <td class="text-end ${transaction.type === 'income' ? 'text-success' : 'text-danger'}">
+                            ${transaction.amount.toLocaleString()}원
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
 }
 
-// 앱 초기화
-async function initializeApp() {
-    try {
-        await updateAvailableYears();
-        await filterTransactions();
-    } catch (error) {
-        console.error('앱 초기화 오류:', error);
-    }
+// 이벤트 핸들러
+function changeMainYear() {
+    currentYear = document.getElementById('mainYearFilter').value;
+    document.getElementById('monthFilter').value = '';
+    loadTransactions();
+}
+
+function filterTransactions() {
+    loadTransactions();
 }
 
 // 페이지 로드 시 초기화
-document.addEventListener('DOMContentLoaded', initializeApp);
+document.addEventListener('DOMContentLoaded', loadInitialData);
