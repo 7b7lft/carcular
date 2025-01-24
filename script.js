@@ -25,6 +25,39 @@ function getBase64(file) {
     });
 }
 
+// 이미지 최적화 함수
+async function optimizeImage(file, maxWidth = 1024) {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = new Image();
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+
+                // 이미지 크기 조정
+                if (width > maxWidth) {
+                    height = Math.round((height * maxWidth) / width);
+                    width = maxWidth;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // 이미지 품질 조정 (0.6 = 60% 품질)
+                const optimizedDataUrl = canvas.toDataURL('image/jpeg', 0.6);
+                resolve(optimizedDataUrl);
+            };
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
 // Firestore에서 데이터 가져오기
 async function loadTransactions() {
     const snapshot = await db.collection('transactions').get();
@@ -43,6 +76,12 @@ async function addTransaction(e) {
         const receiptFile = document.getElementById('receipt').files[0];
         let receiptData = null;
         
+        // 로딩 표시
+        const submitBtn = document.getElementById('submitBtn');
+        const originalBtnText = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 처리중...';
+        
         const transaction = {
             date: document.getElementById('date').value,
             type: document.getElementById('type').value,
@@ -52,7 +91,12 @@ async function addTransaction(e) {
         };
 
         if (receiptFile) {
-            receiptData = await getBase64(receiptFile);
+            // 파일 크기 검사 (10MB 초과시 최적화)
+            if (receiptFile.size > 10 * 1024 * 1024) {
+                receiptData = await optimizeImage(receiptFile);
+            } else {
+                receiptData = await getBase64(receiptFile);
+            }
             transaction.receiptData = receiptData;
         }
 
@@ -60,7 +104,6 @@ async function addTransaction(e) {
             // 수정 모드
             const existingTransaction = transactions.find(t => t.id === editingId);
             
-            // 새 영수증이 없으면 기존 영수증 데이터 유지
             if (!receiptFile && existingTransaction.receiptData) {
                 transaction.receiptData = existingTransaction.receiptData;
             }
@@ -69,7 +112,6 @@ async function addTransaction(e) {
             const index = transactions.findIndex(t => t.id === editingId);
             transactions[index] = { ...transaction, id: editingId };
             
-            // 수정 모드 종료
             cancelEdit();
         } else {
             // 추가 모드
@@ -78,11 +120,20 @@ async function addTransaction(e) {
             transactions.push(transaction);
         }
 
+        // 필터 초기화
+        document.getElementById('yearFilter').value = '';
+        document.getElementById('monthFilter').value = '';
+        
         updateUI();
         e.target.reset();
     } catch (error) {
         console.error("거래 처리 중 오류 발생:", error);
         alert("거래를 처리하는 중 오류가 발생했습니다.");
+    } finally {
+        // 버튼 상태 복구
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnText;
     }
 }
 
@@ -130,16 +181,57 @@ function formatCurrency(amount) {
     return new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(amount);
 }
 
+// 영수증 모달 표시
+function showReceiptModal(receiptData) {
+    const modalImage = document.getElementById('modalReceiptImage');
+    modalImage.src = receiptData;
+    
+    const receiptModal = new bootstrap.Modal(document.getElementById('receiptModal'));
+    receiptModal.show();
+}
+
+// 년도 필터 옵션 설정
+function setupYearFilter() {
+    const yearFilter = document.getElementById('yearFilter');
+    const years = new Set(transactions.map(t => t.date.substring(0, 4)));
+    const sortedYears = Array.from(years).sort((a, b) => b - a); // 내림차순 정렬
+    
+    yearFilter.innerHTML = '<option value="">전체 년도</option>';
+    sortedYears.forEach(year => {
+        yearFilter.innerHTML += `<option value="${year}">${year}년</option>`;
+    });
+}
+
+// 필터링된 거래 내역 가져오기
+function getFilteredTransactions() {
+    const yearFilter = document.getElementById('yearFilter').value;
+    const monthFilter = document.getElementById('monthFilter').value;
+    
+    return transactions.filter(transaction => {
+        const transactionYear = transaction.date.substring(0, 4);
+        const transactionMonth = transaction.date.substring(5, 7);
+        
+        if (yearFilter && transactionYear !== yearFilter) return false;
+        if (monthFilter && transactionMonth !== monthFilter) return false;
+        
+        return true;
+    });
+}
+
+// updateUI 함수 수정
 function updateUI() {
     const transactionList = document.getElementById('transactionList');
     const totalBalance = document.getElementById('totalBalance');
     const totalIncome = document.getElementById('totalIncome');
     const totalExpense = document.getElementById('totalExpense');
 
+    // 필터링된 거래 내역 가져오기
+    const filteredTransactions = getFilteredTransactions();
+    
     transactionList.innerHTML = '';
-    transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+    filteredTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    transactions.forEach(transaction => {
+    filteredTransactions.forEach(transaction => {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${transaction.date}</td>
@@ -148,7 +240,11 @@ function updateUI() {
             <td class="text-${transaction.type === '수입' ? 'success' : 'danger'}">${formatCurrency(transaction.amount)}</td>
             <td>
                 ${transaction.receiptData ? 
-                    `<img src="${transaction.receiptData}" alt="영수증" class="receipt-thumbnail" onclick="window.open('${transaction.receiptData}', '_blank')">` : 
+                    `<img src="${transaction.receiptData}" 
+                         alt="영수증" 
+                         class="receipt-thumbnail" 
+                         onclick="showReceiptModal('${transaction.receiptData}')"
+                         style="cursor: pointer;">` : 
                     '-'}
             </td>
             <td>
@@ -165,11 +261,12 @@ function updateUI() {
         transactionList.appendChild(row);
     });
 
-    const income = transactions
+    // 필터링된 거래 내역으로 합계 계산
+    const income = filteredTransactions
         .filter(transaction => transaction.type === '수입')
         .reduce((total, transaction) => total + transaction.amount, 0);
 
-    const expense = transactions
+    const expense = filteredTransactions
         .filter(transaction => transaction.type === '지출')
         .reduce((total, transaction) => total + transaction.amount, 0);
 
@@ -178,7 +275,14 @@ function updateUI() {
     totalBalance.textContent = formatCurrency(balance);
     totalIncome.textContent = formatCurrency(income);
     totalExpense.textContent = formatCurrency(expense);
+    
+    // 년도 필터 옵션 업데이트
+    setupYearFilter();
 }
+
+// 필터 변경 이벤트 리스너 추가
+document.getElementById('yearFilter').addEventListener('change', updateUI);
+document.getElementById('monthFilter').addEventListener('change', updateUI);
 
 // 에러 처리를 위한 전역 설정
 window.addEventListener('unhandledrejection', function(event) {
@@ -187,4 +291,8 @@ window.addEventListener('unhandledrejection', function(event) {
 });
 
 document.getElementById('transactionForm').addEventListener('submit', addTransaction);
-window.addEventListener('load', loadTransactions);
+window.addEventListener('load', () => {
+    loadTransactions().then(() => {
+        setupYearFilter();
+    });
+});
