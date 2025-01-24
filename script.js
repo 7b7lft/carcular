@@ -16,6 +16,33 @@ let transactions = [];
 let editingId = null;
 let editModal = null;
 
+// 현재 필터 값을 저장할 전역 변수
+let currentYearFilter = '';
+let currentMonthFilter = '';
+
+// 필터 값 저장 함수
+function saveFilterValues() {
+    currentYearFilter = document.getElementById('yearFilter').value;
+    currentMonthFilter = document.getElementById('monthFilter').value;
+}
+
+// 필터 값 복원 함수
+function restoreFilterValues() {
+    const yearFilter = document.getElementById('yearFilter');
+    const monthFilter = document.getElementById('monthFilter');
+    
+    if (yearFilter && monthFilter) {
+        yearFilter.value = currentYearFilter;
+        monthFilter.value = currentMonthFilter;
+    }
+}
+
+// 필터 변경 이벤트 핸들러
+function handleFilterChange() {
+    saveFilterValues();
+    updateUI();
+}
+
 // 이미지를 Base64로 변환
 function getBase64(file) {
     return new Promise((resolve, reject) => {
@@ -231,18 +258,6 @@ function showReceiptModal(receiptData) {
     receiptModal.show();
 }
 
-// 년도 필터 옵션 설정
-function setupYearFilter() {
-    const yearFilter = document.getElementById('yearFilter');
-    const years = new Set(transactions.map(t => t.date.substring(0, 4)));
-    const sortedYears = Array.from(years).sort((a, b) => b - a); // 내림차순 정렬
-    
-    yearFilter.innerHTML = '<option value="">전체 년도</option>';
-    sortedYears.forEach(year => {
-        yearFilter.innerHTML += `<option value="${year}">${year}년</option>`;
-    });
-}
-
 // 필터링된 거래 내역 가져오기
 function getFilteredTransactions() {
     const yearFilter = document.getElementById('yearFilter').value;
@@ -259,16 +274,32 @@ function getFilteredTransactions() {
     });
 }
 
+// 년도 필터 옵션 설정 함수 수정
+function setupYearFilter() {
+    const yearFilter = document.getElementById('yearFilter');
+    if (!yearFilter) return;
+
+    const years = new Set(transactions.map(t => t.date.substring(0, 4)));
+    const sortedYears = Array.from(years).sort((a, b) => b - a);
+    
+    const currentValue = yearFilter.value; // 현재 선택된 값 저장
+    
+    yearFilter.innerHTML = '<option value="">전체 년도</option>';
+    sortedYears.forEach(year => {
+        yearFilter.innerHTML += `<option value="${year}">${year}년</option>`;
+    });
+    
+    yearFilter.value = currentValue; // 이전 선택값 복원
+}
+
 // updateUI 함수 수정
 function updateUI() {
-    // 요소 가져오기 전에 존재 여부 확인
     const desktopList = document.getElementById('desktopTransactionList');
     const mobileList = document.getElementById('mobileTransactionList');
     const totalBalance = document.getElementById('totalBalance');
     const totalIncome = document.getElementById('totalIncome');
     const totalExpense = document.getElementById('totalExpense');
 
-    // 요소가 없으면 함수 종료
     if (!desktopList || !mobileList) {
         console.error('Transaction list elements not found');
         return;
@@ -376,26 +407,34 @@ function updateUI() {
         totalExpense.textContent = formatCurrency(expense);
     }
     
-    // 년도 필터 설정
+    // 년도 필터 옵션 업데이트 후 필터 값 복원
     setupYearFilter();
+    restoreFilterValues();
 }
 
-// 필터 변경 이벤트 리스너 추가
-document.getElementById('yearFilter').addEventListener('change', updateUI);
-document.getElementById('monthFilter').addEventListener('change', updateUI);
-
-// 에러 처리를 위한 전역 설정
-window.addEventListener('unhandledrejection', function(event) {
-    console.error('Unhandled promise rejection:', event.reason);
-    alert('오류가 발생했습니다. 페이지를 새로고침하고 다시 시도해주세요.');
-});
-
-document.getElementById('transactionForm').addEventListener('submit', addTransaction);
+// 이벤트 리스너 설정
 document.addEventListener('DOMContentLoaded', () => {
     editModal = new bootstrap.Modal(document.getElementById('editModal'));
-    loadTransactions().then(() => {
-        setupYearFilter();
-    });
+    
+    // 필터 변경 이벤트 리스너
+    const yearFilter = document.getElementById('yearFilter');
+    const monthFilter = document.getElementById('monthFilter');
+    
+    if (yearFilter && monthFilter) {
+        yearFilter.addEventListener('change', handleFilterChange);
+        monthFilter.addEventListener('change', handleFilterChange);
+    }
+    
+    loadTransactions();
+});
+
+// resize 이벤트 핸들러 수정
+let resizeTimeout;
+window.addEventListener('resize', () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+        updateUI();
+    }, 250); // 디바운스 처리
 });
 
 // 숫자 입력 시 천단위 콤마 표시
@@ -406,9 +445,6 @@ function formatAmount(input) {
         input.value = value;
     }
 }
-
-// 윈도우 리사이즈 시 UI 업데이트
-window.addEventListener('resize', updateUI);
 
 // 수정 내용 저장
 async function saveEdit() {
