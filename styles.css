@@ -355,8 +355,17 @@ button:hover {
 /* 모바일 화면에서의 스타일 */
 @media screen and (max-width: 991px) {
     .transaction-table td.receipt-column {
+        display: flex;
         justify-content: space-between;
-        text-align: right;
+        align-items: center;
+        padding: 0.5rem 0;
+    }
+
+    .transaction-table td.receipt-column::before {
+        content: attr(data-label);
+        font-weight: 600;
+        margin-right: 1rem;
+        text-align: left;
     }
 
     .no-receipt-wrapper {
@@ -364,8 +373,8 @@ button:hover {
         margin-left: auto;
     }
 
-    .transaction-table td.receipt-column::before {
-        flex-shrink: 0;
+    .receipt-thumbnail {
+        margin-left: auto;
     }
 }
 
@@ -377,5 +386,10 @@ button:hover {
     
     .transaction-table td.receipt-column {
         padding-right: 0.5rem;
+    }
+
+    .receipt-thumbnail {
+        width: 40px;
+        height: 40px;
     }
 }
