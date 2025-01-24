@@ -306,7 +306,7 @@ button:hover {
 .table-responsive {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-    margin-bottom: 1rem;
+    margin-top: 1rem;
 }
 
 @media screen and (max-width: 576px) {
@@ -457,4 +457,21 @@ button:hover {
     .filter-group .form-select-sm {
         min-width: 100px;
     }
+}
+
+/* 카드 헤더 스타일 수정 */
+.card-header {
+    border-bottom: none; /* 헤더 아래 라인 제거 */
+}
+
+/* 테이블 상단 여백 조정 */
+.card-body {
+    padding-top: 0; /* 상단 여백 제거 */
+}
+
+/* 필터 그룹 스타일 */
+.filter-group {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
 }
