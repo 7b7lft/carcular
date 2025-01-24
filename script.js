@@ -173,19 +173,25 @@ function updateUI() {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${transaction.date}</td>
-            <td>${transaction.type}</td>
+            <td><span class="badge ${transaction.type === '수입' ? 'bg-success' : 'bg-danger'}">${transaction.type}</span></td>
             <td>${transaction.description}</td>
-            <td>${formatCurrency(transaction.amount)}</td>
+            <td class="text-${transaction.type === '수입' ? 'success' : 'danger'}">${formatCurrency(transaction.amount)}</td>
             <td>
                 ${transaction.receiptURL ? 
-                    `<a href="${transaction.receiptURL}" target="_blank">
-                        <img src="${transaction.receiptURL}" alt="영수증" style="width: 50px; height: 50px; object-fit: cover;">
+                    `<a href="${transaction.receiptURL}" target="_blank" rel="noopener noreferrer">
+                        <img src="${transaction.receiptURL}" alt="영수증" class="receipt-thumbnail">
                     </a>` : 
-                    ''}
+                    '-'}
             </td>
             <td>
-                <button class="edit-btn" onclick="editTransaction('${transaction.id}')">수정</button>
-                <button class="delete-btn" onclick="deleteTransaction('${transaction.id}')">삭제</button>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-edit" onclick="editTransaction('${transaction.id}')">
+                        <i class="bi bi-pencil"></i> 수정
+                    </button>
+                    <button class="btn btn-danger" onclick="deleteTransaction('${transaction.id}')">
+                        <i class="bi bi-trash"></i> 삭제
+                    </button>
+                </div>
             </td>
         `;
         transactionList.appendChild(row);
@@ -208,5 +214,20 @@ function updateUI() {
     totalExpense.textContent = formatCurrency(expense);
 }
 
+// Firebase Storage CORS 오류 해결을 위한 설정
+const storageRef = storage.ref();
+storageRef.constructor.prototype.put = async function(file) {
+    const response = await fetch(file);
+    const blob = await response.blob();
+    const metadata = {
+        contentType: file.type,
+        customMetadata: {
+            'Access-Control-Allow-Origin': '*'
+        }
+    };
+    return this.put(blob, metadata);
+};
+
 document.getElementById('transactionForm').addEventListener('submit', addTransaction);
 window.addEventListener('load', loadTransactions);
+
