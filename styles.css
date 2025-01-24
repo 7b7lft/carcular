@@ -470,6 +470,7 @@ button:hover {
 /* 카드 헤더 스타일 수정 */
 .card-header {
     padding: 1rem;
+    border-bottom: none; /* 회색 라인 제거 */
 }
 
 .card-body {
