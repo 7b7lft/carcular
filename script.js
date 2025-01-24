@@ -18,6 +18,7 @@ let db = null;
 let editTransactionModal = null;
 let currentEditId = null;
 let availableYears = new Set();
+let isTransactionListVisible = true;
 
 // Firebase 초기화 함수
 function initializeFirebase() {
@@ -394,7 +395,10 @@ function updateMonthFilter() {
 }
 
 // 거래 필터링
-async function filterTransactions() {
+async function filterTransactions(event) {
+    if (event) {
+        event.stopPropagation(); // 이벤트 버블링 방지
+    }
     const year = document.getElementById('yearFilter').value;
     const month = document.getElementById('monthFilter').value;
     
@@ -429,4 +433,22 @@ async function filterTransactions() {
     } finally {
         hideLoading();
     }
+}
+
+// 토글 함수 추가
+function toggleTransactionList() {
+    const wrapper = document.getElementById('transactionListWrapper');
+    const toggleIcon = document.getElementById('toggleIcon');
+    
+    if (isTransactionListVisible) {
+        wrapper.style.display = 'none';
+        toggleIcon.classList.remove('bi-chevron-up');
+        toggleIcon.classList.add('bi-chevron-down');
+    } else {
+        wrapper.style.display = 'block';
+        toggleIcon.classList.remove('bi-chevron-down');
+        toggleIcon.classList.add('bi-chevron-up');
+    }
+    
+    isTransactionListVisible = !isTransactionListVisible;
 }
