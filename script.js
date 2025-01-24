@@ -25,9 +25,9 @@ function getBase64(file) {
     });
 }
 
-// 이미지 최적화 함수
-async function optimizeImage(file, maxWidth = 1024) {
-    return new Promise((resolve) => {
+// 이미지 최적화 함수 개선
+async function optimizeImage(file, maxWidth = 800) {
+    return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = function(e) {
             const img = new Image();
@@ -48,14 +48,34 @@ async function optimizeImage(file, maxWidth = 1024) {
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
 
-                // 이미지 품질 조정 (0.6 = 60% 품질)
-                const optimizedDataUrl = canvas.toDataURL('image/jpeg', 0.6);
+                // 이미지 품질을 점진적으로 낮추며 최적화
+                let quality = 0.7;
+                let optimizedDataUrl;
+                let iteration = 0;
+                const maxIterations = 5;
+
+                do {
+                    optimizedDataUrl = canvas.toDataURL('image/jpeg', quality);
+                    quality -= 0.1;
+                    iteration++;
+                } while (optimizedDataUrl.length > 1024 * 1024 && iteration < maxIterations && quality > 0.1);
+
                 resolve(optimizedDataUrl);
             };
+            img.onerror = reject;
             img.src = e.target.result;
         };
+        reader.onerror = reject;
         reader.readAsDataURL(file);
     });
+}
+
+// 파일 크기 검사 함수
+function checkFileSize(file) {
+    const maxSize = 20 * 1024 * 1024; // 20MB
+    if (file.size > maxSize) {
+        throw new Error(`파일 크기가 너무 큽니다. 20MB 이하의 파일만 업로드 가능합니다. (현재 크기: ${(file.size / (1024 * 1024)).toFixed(1)}MB)`);
+    }
 }
 
 // Firestore에서 데이터 가져오기
@@ -72,12 +92,9 @@ async function loadTransactions() {
 async function addTransaction(e) {
     e.preventDefault();
 
-    // 버튼 상태 관리를 위한 변수
     const submitBtn = document.getElementById('submitBtn');
-    const originalBtnText = submitBtn.innerHTML;
     
     try {
-        // 로딩 상태 표시
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 처리중...';
         
@@ -93,13 +110,23 @@ async function addTransaction(e) {
         };
 
         if (receiptFile) {
-            // 파일 크기 검사 (10MB 초과시 최적화)
-            if (receiptFile.size > 10 * 1024 * 1024) {
+            try {
+                // 파일 크기 검사
+                checkFileSize(receiptFile);
+                
+                // 모든 이미지 최적화 처리
                 receiptData = await optimizeImage(receiptFile);
-            } else {
-                receiptData = await getBase64(receiptFile);
+                
+                // 최적화 후에도 크기가 큰 경우 추가 압축
+                if (receiptData.length > 1024 * 1024) {
+                    receiptData = await optimizeImage(receiptFile, 600); // 더 작은 크기로 재시도
+                }
+                
+                transaction.receiptData = receiptData;
+            } catch (error) {
+                alert(error.message || "이미지 처리 중 오류가 발생했습니다.");
+                throw error;
             }
-            transaction.receiptData = receiptData;
         }
 
         if (editingId) {
@@ -130,9 +157,8 @@ async function addTransaction(e) {
         e.target.reset();
     } catch (error) {
         console.error("거래 처리 중 오류 발생:", error);
-        alert("거래를 처리하는 중 오류가 발생했습니다.");
+        alert(error.message || "거래를 처리하는 중 오류가 발생했습니다.");
     } finally {
-        // 버튼 상태 복구
         submitBtn.disabled = false;
         submitBtn.innerHTML = editingId ? '수정' : '추가';
     }
@@ -232,37 +258,52 @@ function updateUI() {
     transactionList.innerHTML = '';
     filteredTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    filteredTransactions.forEach(transaction => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${transaction.date}</td>
-            <td><span class="badge ${transaction.type === '수입' ? 'bg-success' : 'bg-danger'}">${transaction.type}</span></td>
-            <td>${transaction.description}</td>
-            <td class="text-${transaction.type === '수입' ? 'success' : 'danger'}">${formatCurrency(transaction.amount)}</td>
-            <td>
-                ${transaction.receiptData ? 
-                    `<img src="${transaction.receiptData}" 
-                         alt="영수증" 
-                         class="receipt-thumbnail" 
-                         onclick="showReceiptModal('${transaction.receiptData}')"
-                         style="cursor: pointer;">` : 
-                    '-'}
-            </td>
-            <td>
-                <div class="btn-group btn-group-sm">
-                    <button class="btn btn-edit" onclick="editTransaction('${transaction.id}')">
-                        <i class="bi bi-pencil"></i> 수정
-                    </button>
-                    <button class="btn btn-danger" onclick="deleteTransaction('${transaction.id}')">
-                        <i class="bi bi-trash"></i> 삭제
-                    </button>
+    if (filteredTransactions.length === 0) {
+        // 거래 내역이 없을 때 메시지 표시
+        const emptyRow = document.createElement('tr');
+        emptyRow.innerHTML = `
+            <td colspan="6" class="text-center py-4 text-muted">
+                <div class="d-flex flex-column align-items-center">
+                    <i class="bi bi-inbox fs-2 mb-2"></i>
+                    <p class="mb-0">내역이 없습니다</p>
                 </div>
             </td>
         `;
-        transactionList.appendChild(row);
-    });
+        transactionList.appendChild(emptyRow);
+    } else {
+        // 거래 내역이 있을 때 기존 로직 실행
+        filteredTransactions.forEach(transaction => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${transaction.date}</td>
+                <td><span class="badge ${transaction.type === '수입' ? 'bg-success' : 'bg-danger'}">${transaction.type}</span></td>
+                <td>${transaction.description}</td>
+                <td class="text-${transaction.type === '수입' ? 'success' : 'danger'}">${formatCurrency(transaction.amount)}</td>
+                <td>
+                    ${transaction.receiptData ? 
+                        `<img src="${transaction.receiptData}" 
+                             alt="영수증" 
+                             class="receipt-thumbnail" 
+                             onclick="showReceiptModal('${transaction.receiptData}')"
+                             style="cursor: pointer;">` : 
+                        '-'}
+                </td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-edit" onclick="editTransaction('${transaction.id}')">
+                            <i class="bi bi-pencil"></i> 수정
+                        </button>
+                        <button class="btn btn-danger" onclick="deleteTransaction('${transaction.id}')">
+                            <i class="bi bi-trash"></i> 삭제
+                        </button>
+                    </div>
+                </td>
+            `;
+            transactionList.appendChild(row);
+        });
+    }
 
-    // 필터링된 거래 내역으로 합계 계산
+    // 합계 계산 및 표시
     const income = filteredTransactions
         .filter(transaction => transaction.type === '수입')
         .reduce((total, transaction) => total + transaction.amount, 0);
@@ -297,3 +338,12 @@ window.addEventListener('load', () => {
         setupYearFilter();
     });
 });
+
+// 숫자 입력 시 천단위 콤마 표시
+function formatAmount(input) {
+    let value = input.value.replace(/[^\d]/g, '');
+    if (value) {
+        value = parseInt(value).toLocaleString('ko-KR');
+        input.value = value;
+    }
+}
