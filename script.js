@@ -215,7 +215,7 @@ function displayTransactions() {
                              class="receipt-thumbnail" 
                              onclick="viewReceipt('${transaction.receiptUrl}')"
                              alt="영수증">`
-                        : '없음'}
+                        : '<div class="no-receipt-wrapper"><span class="no-receipt">없음</span></div>'}
                 </td>
                 <td data-label="작업" class="action-column">
                     <div class="btn-group btn-group-sm">
