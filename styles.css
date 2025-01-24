@@ -76,10 +76,6 @@ button:hover {
     margin-bottom: 20px;
 }
 
-#transactionList {
-    border-top: 2px solid #ddd;
-}
-
 .transaction-item {
     padding: 15px;
     border-bottom: 1px solid #ddd;
