@@ -40,7 +40,15 @@
                     <div class="col-md-6 col-lg-2">
                         <label for="amount" class="form-label">금액</label>
                         <div class="input-group">
-                            <input type="number" class="form-control" id="amount" placeholder="금액" required>
+                            <input type="text" 
+                                   class="form-control text-end" 
+                                   id="amount" 
+                                   placeholder="금액" 
+                                   required 
+                                   pattern="[0-9,]*"
+                                   oninput="formatAmount(this)"
+                                   onblur="this.value = this.value.replace(/[^\d]/g, '')"
+                                   style="-webkit-appearance: none; -moz-appearance: textfield; appearance: textfield;">
                             <span class="input-group-text">원</span>
                         </div>
                     </div>
