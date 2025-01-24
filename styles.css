@@ -273,7 +273,7 @@ button:hover {
 
     /* 영수증 '없음' 텍스트 정렬 */
     .transaction-table td.receipt-column .no-receipt {
-        margin-left: auto;
+        margin-rightt: auto;
     }
 }
 
