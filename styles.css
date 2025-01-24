@@ -451,6 +451,14 @@ button:hover {
         width: 100%;
         margin-top: 0.5rem;
     }
+
+    .card-header {
+        padding: 0.75rem;
+    }
+
+    .card-body {
+        padding: 1rem;
+    }
 }
 
 @media screen and (max-width: 576px) {
@@ -461,17 +469,9 @@ button:hover {
 
 /* 카드 헤더 스타일 수정 */
 .card-header {
-    border-bottom: none; /* 헤더 아래 라인 제거 */
+    padding: 1rem;
 }
 
-/* 테이블 상단 여백 조정 */
 .card-body {
-    padding-top: 0; /* 상단 여백 제거 */
-}
-
-/* 필터 그룹 스타일 */
-.filter-group {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
+    padding: 1.5rem;
 }
