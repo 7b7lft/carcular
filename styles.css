@@ -105,6 +105,8 @@ button:hover {
     border-radius: 4px;
     transition: transform 0.2s;
     cursor: pointer;
+    display: block;
+    margin: 0 auto;
 }
 
 .receipt-thumbnail:hover {
@@ -345,6 +347,8 @@ button:hover {
 
 .no-receipt {
     color: #6c757d;
+    display: block;
+    text-align: center;
 }
 
 /* 테이블 기본 스타일 */
@@ -355,26 +359,27 @@ button:hover {
 /* 모바일 화면에서의 스타일 */
 @media screen and (max-width: 991px) {
     .transaction-table td.receipt-column {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 0.5rem 0;
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        text-align: left !important;
     }
 
     .transaction-table td.receipt-column::before {
         content: attr(data-label);
         font-weight: 600;
-        margin-right: 1rem;
-        text-align: left;
-    }
-
-    .no-receipt-wrapper {
-        justify-content: flex-end;
-        margin-left: auto;
+        flex-shrink: 0;
+        margin-right: auto;
     }
 
     .receipt-thumbnail {
+        margin: 0 0 0 auto;
+    }
+
+    .no-receipt {
+        text-align: right;
         margin-left: auto;
+        padding-right: 0;
     }
 }
 
@@ -384,12 +389,18 @@ button:hover {
         font-size: 0.9rem;
     }
     
-    .transaction-table td.receipt-column {
-        padding-right: 0.5rem;
-    }
-
     .receipt-thumbnail {
         width: 40px;
         height: 40px;
     }
+
+    .transaction-table td.receipt-column {
+        padding: 0.5rem 0;
+    }
+}
+
+/* PC 환경에서의 테이블 스타일 */
+.transaction-table th.receipt-column,
+.transaction-table td.receipt-column {
+    text-align: center;
 }
