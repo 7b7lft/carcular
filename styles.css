@@ -453,7 +453,7 @@ button:hover {
     }
 
     .card-body {
-        padding: 1rem;
+        padding: 1rem 1rem 0.75rem 1rem; /* 모바일에서 하단 패딩 축소 */
     }
 }
 
@@ -470,17 +470,21 @@ button:hover {
 }
 
 .card-body {
-    padding: 1.5rem;
+    padding: 1.5rem 1.5rem 1rem 1.5rem; /* 하단 패딩 축소 */
 }
 
 /* 테이블 스타일 */
 .table {
     border-top: none; /* 테이블 상단 라인 제거 */
-    margin-bottom: 0;
+    margin-bottom: 0; /* 테이블 하단 마진 제거 */
 }
 
 .table thead th {
     border-top: none; /* 헤더 상단 라인 제거 */
+}
+
+.table tbody tr:last-child td {
+    border-bottom: none; /* 마지막 행의 하단 테두리 제거 */
 }
 
 /* 필터 그룹 스타일 */
@@ -522,7 +526,7 @@ button:hover {
     }
 
     .card-body {
-        padding: 1rem;
+        padding: 1rem 1rem 0.75rem 1rem; /* 모바일에서 하단 패딩 축소 */
     }
 }
 
