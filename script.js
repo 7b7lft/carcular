@@ -93,6 +93,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 초기 데이터 로드
     loadTransactions();
+
+    // 초기 상태 설정
+    const toggleIcon = document.getElementById('toggleIcon');
+    if (!isTransactionListVisible) {
+        toggleIcon.classList.remove('bi-chevron-up');
+        toggleIcon.classList.add('bi-chevron-down');
+    } else {
+        toggleIcon.classList.remove('bi-chevron-down');
+        toggleIcon.classList.add('bi-chevron-up');
+    }
 });
 
 // 폼 제출 처리
@@ -435,7 +445,7 @@ async function filterTransactions(event) {
     }
 }
 
-// 토글 함수 추가
+// 토글 함수 수정
 function toggleTransactionList() {
     const wrapper = document.getElementById('transactionListWrapper');
     const toggleIcon = document.getElementById('toggleIcon');
