@@ -56,9 +56,11 @@
                         <label for="receipt" class="form-label">영수증</label>
                         <input type="file" class="form-control" id="receipt" accept="image/*">
                     </div>
-                    <div class="col-12 d-flex gap-2">
-                        <button type="submit" class="btn btn-primary" id="submitBtn">추가</button>
-                        <button type="button" class="btn btn-secondary" id="cancelBtn" style="display: none;" onclick="cancelEdit()">취소</button>
+                    <div class="col-12">
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-start">
+                            <button type="submit" id="submitBtn" class="btn btn-primary">추가</button>
+                            <button type="button" id="cancelBtn" class="btn btn-secondary" onclick="cancelEdit()" style="display: none;">취소</button>
+                        </div>
                     </div>
                 </form>
             </div>
