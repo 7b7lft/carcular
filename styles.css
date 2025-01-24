@@ -5,56 +5,50 @@
 }
 
 body {
-    font-family: 'Noto Sans KR', sans-serif;
-    line-height: 1.6;
-    padding: 20px;
+    font-family: 'Nanum Gothic', sans-serif;
     background-color: #f5f5f5;
+    line-height: 1.6;
 }
 
 .container {
-    max-width: 1000px;
+    max-width: 1200px;
     margin: 0 auto;
-    background-color: white;
     padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 0 10px rgba(0,0,0,0.1);
 }
 
 h1 {
     text-align: center;
-    margin-bottom: 30px;
     color: #333;
+    margin-bottom: 30px;
 }
 
-h2 {
+.input-section {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     margin-bottom: 20px;
-    color: #444;
 }
 
-.form-group {
-    margin-bottom: 15px;
+form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
 }
 
-label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: bold;
-}
-
-input, select {
-    width: 100%;
-    padding: 8px;
+input, select, button {
+    padding: 10px;
     border: 1px solid #ddd;
     border-radius: 4px;
+    font-size: 16px;
 }
 
 button {
     background-color: #4CAF50;
     color: white;
-    padding: 10px 20px;
     border: none;
-    border-radius: 4px;
     cursor: pointer;
+    transition: background-color 0.3s;
 }
 
 button:hover {
@@ -62,619 +56,72 @@ button:hover {
 }
 
 .summary-section {
-    margin: 30px 0;
-    padding: 20px;
-    background-color: #f8f9fa;
-    border-radius: 4px;
-}
-
-.transaction-section {
-    margin-top: 30px;
-}
-
-.filter-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
     margin-bottom: 20px;
 }
 
-.transaction-item {
-    padding: 15px;
-    border-bottom: 1px solid #ddd;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    transition: all 0.3s ease;
-}
-
-.transaction-item:hover {
-    background-color: rgba(0,0,0,0.02);
-}
-
-.receipt-image {
-    max-width: 100px;
-    cursor: pointer;
-}
-
-.receipt-thumbnail {
-    width: 50px;
-    height: 50px;
-    object-fit: cover;
-    border-radius: 4px;
-    transition: transform 0.2s;
-    cursor: pointer;
-    display: block;
-    margin: 0 auto;
-}
-
-.receipt-thumbnail:hover {
-    transform: scale(1.1);
-}
-
-#receiptImage {
-    max-height: 80vh;
-    max-width: 100%;
-}
-
-.income {
-    color: #28a745;
-}
-
-.expense {
-    color: #dc3545;
-}
-
-.modal {
-    display: none;
-    position: fixed;
-    z-index: 1050 !important;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0,0,0,0.4);
-}
-
-.modal-content {
-    background-color: #fefefe;
-    margin: 15% auto;
+.balance, .summary {
+    background-color: white;
     padding: 20px;
-    border: 1px solid #888;
-    width: 80%;
-    max-width: 500px;
-    border-radius: 4px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.close {
-    color: #aaa;
-    float: right;
-    font-size: 28px;
-    font-weight: bold;
-    cursor: pointer;
+.summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
 }
 
-.close:hover {
-    color: black;
+.transaction-section {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.add-receipt-btn {
-    background-color: #007bff;
-    color: white;
-    padding: 5px 10px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    margin-left: 10px;
-}
-
-.add-receipt-btn:hover {
-    background-color: #0056b3;
-}
-
-.loading-spinner {
-    position: fixed;
-    top: 0;
-    left: 0;
+table {
     width: 100%;
-    height: 100%;
-    background: rgba(255, 255, 255, 0.8);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1030;
+    border-collapse: collapse;
+    margin-top: 20px;
 }
 
-.loading-spinner.d-none {
-    display: none;
+th, td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
 }
 
-.modal-backdrop {
-    z-index: 1040 !important;
-}
-
-.modal-dialog {
-    z-index: 1051 !important;
-    max-width: 90%;
-}
-
-/* 반응형 테이블 스타일 */
-@media screen and (max-width: 991px) {
-    .transaction-table {
-        border: 0;
-    }
-
-    .transaction-table thead {
-        display: none;
-    }
-
-    .transaction-table tr {
-        display: block;
-        background: #fff;
-        border: 1px solid #dee2e6;
-        border-radius: 8px;
-        margin-bottom: 1rem;
-        padding: 1rem;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-
-    .transaction-table td {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 0 0;
-        border: none;
-        border-bottom: 1px solid #f0f0f0;
-    }
-
-    .transaction-table td:last-child {
-        border-bottom: none;
-    }
-
-    .transaction-table td::before {
-        content: attr(data-label);
-        font-weight: 600;
-        margin-right: 1rem;
-        min-width: 100px;
-    }
-
-    /* 영수증 열 스타일 */
-    .transaction-table td.receipt-column {
-        justify-content: flex-start;
-        gap: 1rem;
-    }
-
-    .transaction-table td.receipt-column .receipt-thumbnail {
-        margin-left: auto;
-    }
-
-    /* 작업 버튼 열 스타일 */
-    .transaction-table td.action-column {
-        justify-content: flex-start;
-        padding-top: 1rem;
-    }
-
-    .transaction-table td.action-column .btn-group {
-        margin-left: auto;
-    }
-
-    .btn-group {
-        display: flex;
-        gap: 0.5rem;
-    }
-
-    .btn-group .btn {
-        padding: 0.5rem 1rem;
-    }
-
-    /* 금액 정렬 */
-    .transaction-table td[data-label="금액"] {
-        font-weight: 600;
-    }
-
-    /* 영수증 '없음' 텍스트 정렬 */
-    .transaction-table td.receipt-column .no-receipt {
-        margin-right: auto;
-    }
-}
-
-/* 버튼 아이콘 스타일 */
-.btn i {
-    font-size: 1rem;
-}
-
-.btn-group {
-    white-space: nowrap;
-}
-
-/* 테이블 셀 여백 조정 */
-.transaction-table td {
-    vertical-align: middle;
-}
-
-.action-column {
-    white-space: nowrap;
-    min-width: 100px;
-}
-
-.receipt-column {
-    min-width: 70px;
-}
-
-/* 스크롤 가능한 테이블 컨테이너 */
-.table-responsive {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    margin-top: 1rem;
-}
-
-@media screen and (max-width: 576px) {
-    .transaction-table tr {
-        margin: 0.5rem 0;
-        padding: 0.75rem;
-    }
-
-    .transaction-table td {
-        padding: 0.4rem 0;
-    }
-
-    .btn-group .btn {
-        padding: 0.4rem 0.8rem;
-    }
-
-    .receipt-thumbnail {
-        width: 40px;
-        height: 40px;
-    }
-
-    .form-select-sm {
-        min-width: 90px;
-    }
-}
-
-/* 필터 스타일 */
-.form-select-sm {
-    min-width: 100px;
-}
-
-/* 영수증 '없음' 텍스트 정렬 */
-.no-receipt-wrapper {
-    width: 100%;
-    display: flex;
-    justify-content: center;
-}
-
-.no-receipt {
-    color: #6c757d;
-    display: block;
-    text-align: center;
-}
-
-/* 테이블 기본 스타일 */
-.transaction-table td.receipt-column {
-    text-align: center;
-}
-
-/* 모바일 화면에서의 스타일 */
-@media screen and (max-width: 991px) {
-    .transaction-table td {
-        padding: 0.5rem 0 !important; /* 기본 패딩 제거 */
-    }
-
-    .transaction-table td.receipt-column {
-        display: flex !important;
-        justify-content: space-between !important;
-        align-items: center !important;
-        text-align: left !important;
-        padding-right: 0 !important; /* 오른쪽 패딩 제거 */
-        width: 100%; /* 전체 너비 사용 */
-    }
-
-    .transaction-table td.receipt-column::before {
-        content: attr(data-label);
-        font-weight: 600;
-        flex-shrink: 0;
-        margin-right: auto;
-        padding-right: 1rem; /* 레이블과 내용 사이 간격 */
-    }
-
-    .receipt-thumbnail {
-        margin: 0 0 0 auto;
-    }
-
-    .no-receipt {
-        text-align: right;
-        margin-left: auto;
-        padding: 0; /* 모든 패딩 제거 */
-        margin-right: 0; /* 오른쪽 마진 제거 */
-    }
-
-    /* 테이블 셀 전체 스타일 재정의 */
-    .transaction-table tr {
-        padding: 0.75rem 0.5rem; /* 행 전체 패딩 조정 */
-    }
-}
-
-/* 작은 모바일 화면 최적화 */
-@media screen and (max-width: 576px) {
-    .no-receipt {
-        font-size: 0.9rem;
-    }
-    
-    .receipt-thumbnail {
-        width: 40px;
-        height: 40px;
-    }
-
-    .transaction-table tr {
-        padding: 0.5rem; /* 더 작은 화면에서 패딩 축소 */
-    }
-}
-
-/* PC 환경에서의 테이블 스타일 */
-.transaction-table th.receipt-column,
-.transaction-table td.receipt-column {
-    text-align: center;
-}
-
-/* 필터 그룹 스타일 */
-.filter-group {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-}
-
-.filter-group .form-select-sm {
-    width: auto;
-    min-width: 100px;
-}
-
-/* 모바일 환경에서의 필터 스타일 */
-@media screen and (max-width: 991px) {
-    .card-header .d-flex {
-        flex-direction: column;
-        gap: 1rem;
-    }
-
-    .filter-group {
-        width: 100%;
-        flex-wrap: wrap;
-    }
-
-    .filter-group .form-select-sm {
-        flex: 1;
-        min-width: 120px;
-    }
-
-    .filter-group .btn {
-        width: 100%;
-        margin-top: 0.5rem;
-    }
-
-    .card-header {
-        padding: 0.75rem;
-    }
-
-    .card-body {
-        padding: 1rem 1rem 0.75rem 1rem;
-    }
-
-    /* 모바일 환경에서의 테이블 스타일 */
-    .transaction-table tr {
-        border: 1px solid #dee2e6 !important;
-        margin-bottom: 0.5rem;
-        padding: 0.75rem !important;
-    }
-
-    .transaction-table tr:last-child {
-        margin-bottom: 0;
-    }
-
-    .transaction-table td {
-        border-bottom: 1px solid #dee2e6 !important;
-        padding: 0.5rem 0 !important;
-    }
-
-    .transaction-table td:last-child {
-        border-bottom: none !important;
-    }
-}
-
-@media screen and (max-width: 576px) {
-    .filter-group .form-select-sm {
-        min-width: 100px;
-    }
-}
-
-/* 카드 헤더 스타일 수정 */
-.card-header {
-    padding: 1rem;
-    border-bottom: none;
-}
-
-.card-body {
-    padding: 1.5rem 1.5rem 1rem 1.5rem;
-}
-
-/* 테이블 스타일 */
-.table {
-    border-top: none;
-    margin-bottom: 0;
-}
-
-.table thead th {
-    border-top: none;
-}
-
-.table tbody tr:last-child td {
-    border-bottom: none;
-}
-
-/* 필터 그룹 스타일 */
-.filter-group {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-}
-
-.filter-group .form-select-sm {
-    width: auto;
-    min-width: 100px;
-}
-
-/* 아코디언 스타일 */
-.card-header[role="button"]:hover {
-    background-color: #0dcaf0 !important;
-}
-
-#toggleIcon {
-    transition: transform 0.3s ease;
-    font-size: 1.2rem;
-}
-
-.bi-chevron-down {
-    transform: rotate(180deg);
-}
-
-/* 필터 그룹이 클릭 이벤트를 방해하지 않도록 설정 */
-.filter-group {
-    position: relative;
-    z-index: 1;
-}
-
-/* 모바일 환경에서의 스타일 */
-@media screen and (max-width: 991px) {
-    .card-header .d-flex {
-        flex-direction: column;
-        gap: 1rem;
-    }
-    
-    #toggleIcon {
-        font-size: 1rem;
-    }
-
-    /* 모바일 환경에서의 테이블 스타일 */
-    .transaction-table tr {
-        border: 1px solid #dee2e6 !important;
-        margin-bottom: 0.5rem;
-        padding: 0.75rem !important;
-    }
-
-    .transaction-table tr:last-child {
-        margin-bottom: 0;
-    }
-
-    .transaction-table td {
-        border-bottom: 1px solid #dee2e6 !important;
-        padding: 0.5rem 0 !important;
-    }
-
-    .transaction-table td:last-child {
-        border-bottom: none !important;
-    }
-}
-
-@media screen and (max-width: 576px) {
-    .filter-group .form-select-sm {
-        min-width: 100px;
-    }
-}
-
-/* 나머지 기존 스타일 유지 */
-
-/* PDF 버튼 스타일 */
-.btn-light i {
-    margin-right: 4px;
-}
-
-@media screen and (max-width: 991px) {
-    .filter-group .btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.25rem;
-    }
-}
-
-/* 메인 연도 필터 스타일 */
-#mainYearFilter {
-    min-width: 100px;
-    font-size: 1.1rem;
-    padding: 0.3rem 1.5rem 0.3rem 0.75rem;
-    border-radius: 4px;
-}
-
-/* 모바일 환경 스타일 */
-@media screen and (max-width: 576px) {
-    .container .d-flex {
-        flex-direction: column;
-        gap: 1rem;
-        align-items: stretch !important;
-    }
-    
-    .container .d-flex button {
-        width: 100%;
-    }
-    
-    #mainYearFilter {
-        font-size: 1rem;
-        padding: 0.25rem 1.5rem 0.25rem 0.75rem;
-    }
-}
-
-/* 필터 그룹 스타일 */
-.filter-group {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-}
-
-.filter-group .form-select-sm {
-    width: auto;
-    min-width: 100px;
-}
-
-/* 테이블 스타일 */
-.table-responsive {
-    overflow-x: auto;
-}
-
-.table th {
+th {
     background-color: #f8f9fa;
+    font-weight: bold;
 }
 
-/* PDF 버튼 스타일 */
-.btn-light i {
-    margin-right: 4px;
+.delete-btn {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
 }
 
-/* 모바일 환경 스타일 */
-@media screen and (max-width: 991px) {
-    .card-header .d-flex {
-        flex-direction: column;
-        gap: 1rem;
-    }
-
-    .filter-group {
-        width: 100%;
-        flex-wrap: wrap;
-    }
-
-    .filter-group .form-select-sm {
-        flex: 1;
-        min-width: 120px;
-    }
-
-    .filter-group .btn {
-        width: 100%;
-        margin-top: 0.5rem;
-    }
+.delete-btn:hover {
+    background-color: #c82333;
 }
 
-@media screen and (max-width: 576px) {
-    .container .d-flex {
-        flex-direction: column;
-        gap: 1rem;
-    }
-    
-    #mainYearFilter {
-        width: 100%;
-    }
+.edit-btn {
+    background-color: #ffc107;
+    color: black;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-right: 5px;
+}
+
+.edit-btn:hover {
+    background-color: #e0a800;
 }
