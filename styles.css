@@ -428,3 +428,35 @@ input[type="number"] {
         display: none;
     }
 }
+
+/* 모달 스타일 */
+.modal-body {
+    max-height: calc(100vh - 210px);
+    overflow-y: auto;
+}
+
+.modal-dialog {
+    margin: 1.75rem auto;
+}
+
+@media (max-width: 768px) {
+    .modal-dialog {
+        margin: 1rem;
+    }
+}
+
+#currentReceiptPreview img {
+    display: block;
+    margin: 0 auto;
+    max-width: 100%;
+    border-radius: 4px;
+}
+
+/* 모달 내 폼 스타일 */
+.modal .form-label {
+    font-weight: 500;
+}
+
+.modal .input-group-text {
+    background-color: #f8f9fa;
+}
