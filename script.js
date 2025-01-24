@@ -147,24 +147,23 @@ async function addTransaction(date, description, type, amount, receiptUrl) {
 // 거래 목록 로드
 async function loadTransactions() {
     try {
-        const snapshot = await db.collection('transactions').get();
+        // 현재 선택된 연도의 데이터만 로드
+        const startDate = `${currentYear}0101`;
+        const endDate = `${currentYear}1231`;
+        
+        const snapshot = await db.collection('transactions')
+            .where('date', '>=', startDate)
+            .where('date', '<=', endDate)
+            .get();
         
         transactions = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         }));
         
-        // JavaScript에서 정렬
+        // 날짜순 정렬
         transactions.sort((a, b) => b.date.localeCompare(a.date));
         
-        // 사용 가능한 연도 업데이트
-        availableYears.clear();
-        transactions.forEach(transaction => {
-            const year = transaction.date.substring(0, 4);
-            availableYears.add(year);
-        });
-        
-        updateYearFilter();
         displayTransactions();
         updateSummary();
     } catch (error) {
@@ -401,12 +400,14 @@ async function filterTransactions() {
         query = query.where('date', '>=', startDate)
                     .where('date', '<=', endDate);
         
+        // 월 필터 적용
         const month = document.getElementById('monthFilter').value;
         if (month) {
             const monthStartDate = `${currentYear}${month}01`;
             const monthEndDate = `${currentYear}${month}31`;
-            query = query.where('date', '>=', monthStartDate)
-                        .where('date', '<=', monthEndDate);
+            query = db.collection('transactions')
+                     .where('date', '>=', monthStartDate)
+                     .where('date', '<=', monthEndDate);
         }
         
         const snapshot = await query.get();
@@ -415,6 +416,7 @@ async function filterTransactions() {
             ...doc.data()
         }));
         
+        // 날짜순 정렬
         transactions.sort((a, b) => b.date.localeCompare(a.date));
         
         displayTransactions();
@@ -556,15 +558,18 @@ async function changeMainYear() {
 
     currentYear = mainYearFilter.value;
     
-    // 거래내역 연도 필터 업데이트
+    // 거래내역 연도 필터 동기화
     const yearFilter = document.getElementById('yearFilter');
     if (yearFilter) {
         yearFilter.value = currentYear;
     }
 
+    // 월 필터 초기화
+    const monthFilter = document.getElementById('monthFilter');
+    if (monthFilter) {
+        monthFilter.value = '';
+    }
+
     // 데이터 다시 로드
     await filterTransactions();
-    
-    // 요약 정보 업데이트
-    updateSummary();
 }
