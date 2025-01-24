@@ -453,7 +453,17 @@ button:hover {
     }
 
     .card-body {
-        padding: 1rem 1rem 0.75rem 1rem; /* 모바일에서 하단 패딩 축소 */
+        padding: 1rem 1rem 0.75rem 1rem;
+    }
+
+    /* 모바일 환경에서의 테이블 스타일 */
+    .transaction-table tr {
+        border: 1px solid #dee2e6 !important;
+        margin-bottom: 0.5rem;
+    }
+
+    .transaction-table tr:last-child {
+        margin-bottom: 0;
     }
 }
 
@@ -466,25 +476,25 @@ button:hover {
 /* 카드 헤더 스타일 수정 */
 .card-header {
     padding: 1rem;
-    border-bottom: none; /* 회색 라인 제거 */
+    border-bottom: none;
 }
 
 .card-body {
-    padding: 1.5rem 1.5rem 1rem 1.5rem; /* 하단 패딩 축소 */
+    padding: 1.5rem 1.5rem 1rem 1.5rem;
 }
 
 /* 테이블 스타일 */
 .table {
-    border-top: none; /* 테이블 상단 라인 제거 */
-    margin-bottom: 0; /* 테이블 하단 마진 제거 */
+    border-top: none;
+    margin-bottom: 0;
 }
 
 .table thead th {
-    border-top: none; /* 헤더 상단 라인 제거 */
+    border-top: none;
 }
 
 .table tbody tr:last-child td {
-    border-bottom: none; /* 마지막 행의 하단 테두리 제거 */
+    border-bottom: none;
 }
 
 /* 필터 그룹 스타일 */
@@ -526,7 +536,17 @@ button:hover {
     }
 
     .card-body {
-        padding: 1rem 1rem 0.75rem 1rem; /* 모바일에서 하단 패딩 축소 */
+        padding: 1rem 1rem 0.75rem 1rem;
+    }
+
+    /* 모바일 환경에서의 테이블 스타일 */
+    .transaction-table tr {
+        border: 1px solid #dee2e6 !important;
+        margin-bottom: 0.5rem;
+    }
+
+    .transaction-table tr:last-child {
+        margin-bottom: 0;
     }
 }
 
