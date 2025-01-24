@@ -254,55 +254,105 @@ function updateUI() {
 
     // 필터링된 거래 내역 가져오기
     const filteredTransactions = getFilteredTransactions();
-    
-    transactionList.innerHTML = '';
     filteredTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
 
+    // 모바일 환경인지 확인
+    const isMobile = window.innerWidth <= 768;
+
     if (filteredTransactions.length === 0) {
-        // 거래 내역이 없을 때 메시지 표시
-        const emptyRow = document.createElement('tr');
-        emptyRow.innerHTML = `
-            <td colspan="6" class="text-center py-4 text-muted">
-                <div class="d-flex flex-column align-items-center">
+        if (isMobile) {
+            transactionList.innerHTML = `
+                <div class="text-center py-4 text-muted">
                     <i class="bi bi-inbox fs-2 mb-2"></i>
                     <p class="mb-0">내역이 없습니다</p>
                 </div>
-            </td>
-        `;
-        transactionList.appendChild(emptyRow);
-    } else {
-        // 거래 내역이 있을 때 기존 로직 실행
-        filteredTransactions.forEach(transaction => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td class="date-cell">${transaction.date}</td>
-                <td class="type-cell"><span class="badge ${transaction.type === '수입' ? 'bg-success' : 'bg-danger'}">${transaction.type}</span></td>
-                <td class="desc-cell">${transaction.description}</td>
-                <td class="amount-cell text-${transaction.type === '수입' ? 'success' : 'danger'}">${formatCurrency(transaction.amount)}</td>
-                <td class="receipt-cell">
-                    ${transaction.receiptData ? 
-                        `<img src="${transaction.receiptData}" 
-                             alt="영수증" 
-                             class="receipt-thumbnail" 
-                             onclick="showReceiptModal('${transaction.receiptData}')"
-                             style="cursor: pointer;">` : 
-                        '-'}
-                </td>
-                <td class="action-cell">
-                    <div class="d-flex gap-1 action-buttons">
-                        <button class="btn btn-edit btn-sm" onclick="editTransaction('${transaction.id}')">
-                            <i class="bi bi-pencil d-md-none"></i>
-                            <span class="d-none d-md-inline">수정</span>
-                        </button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteTransaction('${transaction.id}')">
-                            <i class="bi bi-trash d-md-none"></i>
-                            <span class="d-none d-md-inline">삭제</span>
-                        </button>
-                    </div>
-                </td>
             `;
-            transactionList.appendChild(row);
-        });
+        } else {
+            transactionList.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center py-4 text-muted">
+                        <div class="d-flex flex-column align-items-center">
+                            <i class="bi bi-inbox fs-2 mb-2"></i>
+                            <p class="mb-0">내역이 없습니다</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+    } else {
+        if (isMobile) {
+            // 모바일용 카드 UI
+            transactionList.innerHTML = `
+                <div class="transaction-cards">
+                    ${filteredTransactions.map(transaction => `
+                        <div class="transaction-card">
+                            <div class="card-header">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="date">${transaction.date}</span>
+                                    <span class="badge ${transaction.type === '수입' ? 'bg-success' : 'bg-danger'}">${transaction.type}</span>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div class="description">${transaction.description}</div>
+                                    <div class="amount text-${transaction.type === '수입' ? 'success' : 'danger'} fw-bold">
+                                        ${formatCurrency(transaction.amount)}
+                                    </div>
+                                </div>
+                                ${transaction.receiptData ? `
+                                    <div class="receipt-image mb-2">
+                                        <img src="${transaction.receiptData}" 
+                                             alt="영수증" 
+                                             class="receipt-thumbnail-mobile" 
+                                             onclick="showReceiptModal('${transaction.receiptData}')">
+                                    </div>
+                                ` : ''}
+                                <div class="d-flex gap-2 justify-content-end">
+                                    <button class="btn btn-edit btn-sm" onclick="editTransaction('${transaction.id}')">
+                                        <i class="bi bi-pencil-square"></i> 수정
+                                    </button>
+                                    <button class="btn btn-danger btn-sm" onclick="deleteTransaction('${transaction.id}')">
+                                        <i class="bi bi-trash3-fill"></i> 삭제
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        } else {
+            // 데스크톱용 테이블 UI (기존 코드)
+            transactionList.innerHTML = '';
+            filteredTransactions.forEach(transaction => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="date-cell">${transaction.date}</td>
+                    <td class="type-cell"><span class="badge ${transaction.type === '수입' ? 'bg-success' : 'bg-danger'}">${transaction.type}</span></td>
+                    <td class="desc-cell">${transaction.description}</td>
+                    <td class="amount-cell text-${transaction.type === '수입' ? 'success' : 'danger'}">${formatCurrency(transaction.amount)}</td>
+                    <td class="receipt-cell">
+                        ${transaction.receiptData ? 
+                            `<img src="${transaction.receiptData}" 
+                                 alt="영수증" 
+                                 class="receipt-thumbnail" 
+                                 onclick="showReceiptModal('${transaction.receiptData}')"
+                                 style="cursor: pointer;">` : 
+                            '-'}
+                    </td>
+                    <td class="action-cell">
+                        <div class="d-flex gap-1 action-buttons">
+                            <button class="btn btn-edit btn-sm" onclick="editTransaction('${transaction.id}')" title="수정">
+                                <i class="bi bi-pencil-square me-1"></i>수정
+                            </button>
+                            <button class="btn btn-danger btn-sm" onclick="deleteTransaction('${transaction.id}')" title="삭제">
+                                <i class="bi bi-trash3-fill me-1"></i>삭제
+                            </button>
+                        </div>
+                    </td>
+                `;
+                transactionList.appendChild(row);
+            });
+        }
     }
 
     // 합계 계산 및 표시
@@ -320,7 +370,6 @@ function updateUI() {
     totalIncome.textContent = formatCurrency(income);
     totalExpense.textContent = formatCurrency(expense);
     
-    // 년도 필터 옵션 업데이트
     setupYearFilter();
 }
 
@@ -349,3 +398,6 @@ function formatAmount(input) {
         input.value = value;
     }
 }
+
+// 윈도우 리사이즈 시 UI 업데이트
+window.addEventListener('resize', updateUI);
