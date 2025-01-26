@@ -8,13 +8,32 @@ const firebaseConfig = {
     appId: "1:1098234887455:web:c6b5c0d0b82e1c6c2a40e1"
 };
 
-// Firebase 앱 초기화
-if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-}
+// Firebase 초기화 및 Firestore 설정
+let db;
 
-// Firestore 데이터베이스 참조
-const db = firebase.firestore();
+async function initializeFirebase() {
+    try {
+        // Firebase 앱이 이미 초기화되었는지 확인
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        
+        db = firebase.firestore();
+        
+        // Firestore 설정
+        db.settings({
+            cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED,
+            experimentalForceLongPolling: true, // 연결 안정성 향상
+            merge: true // 데이터 병합 허용
+        });
+
+        console.log('Firebase 초기화 성공');
+        return true;
+    } catch (error) {
+        console.error('Firebase 초기화 실패:', error);
+        return false;
+    }
+}
 
 // 전역 변수 선언
 let transactions = [];
@@ -24,6 +43,7 @@ let lastScrollPosition = 0;
 let currentYearFilter = '';
 let currentMonthFilter = '';
 let editModal = null;
+let isLoading = false;
 
 // updateUI 함수를 먼저 정의
 function updateUI() {
@@ -267,45 +287,73 @@ function checkFileSize(file) {
     }
 }
 
-// 거래내역 로드 함수
+// 거래내역 로드 함수 수정
 async function loadTransactions() {
+    if (!db) {
+        const initialized = await initializeFirebase();
+        if (!initialized) {
+            alert('데이터베이스 연결에 실패했습니다.');
+            return;
+        }
+    }
+
     try {
         console.log('거래내역 로딩 시작');
         
-        // 거래내역 가져오기
-        const snapshot = await db.collection('transactions')
+        // 트랜잭션 컬렉션 참조
+        const transactionsRef = db.collection('transactions');
+        
+        // 데이터 가져오기 시도
+        const snapshot = await transactionsRef
             .orderBy('timestamp', 'desc')
             .get();
 
-        // 데이터 변환 및 저장
-        transactions = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            timestamp: doc.data().timestamp ? doc.data().timestamp.toDate() : new Date()
-        }));
+        if (snapshot.empty) {
+            console.log('거래내역이 없습니다.');
+            transactions = [];
+        } else {
+            transactions = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data(),
+                timestamp: doc.data().timestamp ? 
+                    new Date(doc.data().timestamp.seconds * 1000) : 
+                    new Date()
+            }));
+            console.log(`${transactions.length}개의 거래내역을 로드했습니다.`);
+        }
 
-        console.log(`${transactions.length}개의 거래내역을 성공적으로 로드했습니다.`);
-        
-        // UI 업데이트
         updateUI();
-        
+
     } catch (error) {
-        console.error('거래내역 로딩 중 오류 발생:', error);
-        alert('거래내역을 불러오는데 실패했습니다.');
+        console.error('거래내역 로딩 중 오류:', error);
+        
+        if (error.code === 'permission-denied') {
+            alert('데이터베이스 접근 권한이 없습니다.');
+        } else if (error.code === 'unavailable') {
+            alert('데이터베이스 연결이 불안정합니다. 잠시 후 다시 시도해주세요.');
+        } else {
+            alert('데이터를 불러오는 중 오류가 발생했습니다.');
+        }
+        
         transactions = [];
         updateUI();
     }
 }
 
-// 거래내역 추가 함수
+// 거래내역 추가 함수 수정
 async function addTransaction(e) {
     e.preventDefault();
-    const submitBtn = document.getElementById('submitBtn');
     
+    if (!db) {
+        alert('데이터베이스 연결이 필요합니다.');
+        return;
+    }
+
+    const submitBtn = document.getElementById('submitBtn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 처리중...';
+
     try {
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 처리중...';
-        
         const transaction = {
             date: document.getElementById('date').value,
             type: document.getElementById('type').value,
@@ -320,16 +368,17 @@ async function addTransaction(e) {
             transaction.receiptData = receiptData;
         }
 
-        // Firestore에 추가
         const docRef = await db.collection('transactions').add(transaction);
-        
-        // 로컬 배열에 추가
-        transactions.push({
-            id: docRef.id,
-            ...transaction
-        });
+        console.log('거래내역 추가 성공:', docRef.id);
 
-        // UI 업데이트
+        // 로컬 배열에 추가
+        const newTransaction = {
+            id: docRef.id,
+            ...transaction,
+            timestamp: new Date()
+        };
+        transactions.push(newTransaction);
+
         updateUI();
         e.target.reset();
         alert('거래내역이 추가되었습니다.');
@@ -554,10 +603,10 @@ style.textContent = `
 document.head.appendChild(style);
 
 // 페이지 크기 변경 이벤트 리스너
-document.addEventListener('DOMContentLoaded', () => {
-    loadTransactions();
+document.addEventListener('DOMContentLoaded', async () => {
+    await initializeFirebase();
+    await loadTransactions();
     
-    // 폼 제출 이벤트 리스너
     const transactionForm = document.getElementById('transactionForm');
     if (transactionForm) {
         transactionForm.addEventListener('submit', addTransaction);
