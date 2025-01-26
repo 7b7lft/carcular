@@ -108,12 +108,17 @@ function checkFileSize(file) {
 
 // Firestore에서 데이터 가져오기
 async function loadTransactions() {
-    const snapshot = await db.collection('transactions').get();
-    transactions = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-    }));
-    updateUI();
+    try {
+        const snapshot = await db.collection('transactions').get();
+        transactions = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        }));
+        updateUI();
+    } catch (error) {
+        console.error("거래 내역을 불러오는 중 오류 발생:", error);
+        alert("거래 내역을 불러오는 중 오류가 발생했습니다.");
+    }
 }
 
 // 거래 추가/수정
@@ -129,25 +134,24 @@ async function addTransaction(e) {
         const receiptFile = document.getElementById('receipt').files[0];
         let receiptData = null;
         
+        // 금액 입력값에서 쉼표 제거 후 정수 변환
+        const amountValue = document.getElementById('amount').value.replace(/,/g, '');
+        
         const transaction = {
             date: document.getElementById('date').value,
             type: document.getElementById('type').value,
             description: document.getElementById('description').value,
-            amount: parseInt(document.getElementById('amount').value.replace(/,/g, '')),
+            amount: parseInt(amountValue),
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
         };
 
         if (receiptFile) {
             try {
-                // 파일 크기 검사
                 checkFileSize(receiptFile);
-                
-                // 모든 이미지 최적화 처리
                 receiptData = await optimizeImage(receiptFile);
                 
-                // 최적화 후에도 크기가 큰 경우 추가 압축
                 if (receiptData.length > 1024 * 1024) {
-                    receiptData = await optimizeImage(receiptFile, 600); // 더 작은 크기로 재시도
+                    receiptData = await optimizeImage(receiptFile, 600);
                 }
                 
                 transaction.receiptData = receiptData;
@@ -159,8 +163,13 @@ async function addTransaction(e) {
 
         // Firestore에 추가
         const docRef = await db.collection('transactions').add(transaction);
-        transaction.id = docRef.id;
-        transactions.push(transaction);
+        
+        // 새로운 거래 내역을 transactions 배열에 추가
+        const newTransaction = {
+            id: docRef.id,
+            ...transaction
+        };
+        transactions.push(newTransaction);
 
         // 필터 초기화
         currentYearFilter = '';
