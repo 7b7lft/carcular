@@ -1,740 +1,218 @@
-// Firebase 설정
-const firebaseConfig = {
-    apiKey: "AIzaSyBPv_HJB-0E8h8UXYJdGXYwVGvBq6g7PdA",
-    authDomain: "jangbu-2024.firebaseapp.com",
-    projectId: "jangbu-2024",
-    storageBucket: "jangbu-2024.appspot.com",
-    messagingSenderId: "1098234887455",
-    appId: "1:1098234887455:web:c6b5c0d0b82e1c6c2a40e1"
-};
-
-// 전역 변수
-let db;
-let auth;
-let transactions = [];
-let currentPage = 1;
-let pageSize = 10;
-let lastScrollPosition = 0;
-let currentYearFilter = '';
-let currentMonthFilter = '';
-let editModal = null;
-let isLoading = false;
-
-// Firebase 초기화 함수
-async function initializeFirebase() {
-    try {
-        // 기존 앱이 있다면 삭제
-        if (firebase.apps.length) {
-            await firebase.app().delete();
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>교회 회계 장부</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .spinner-border {
+            width: 1rem;
+            height: 1rem;
+            margin-right: 0.5rem;
         }
-
-        // Firebase 앱 초기화
-        const app = firebase.initializeApp(firebaseConfig);
+    </style>
+</head>
+<body class="bg-light">
+    <div class="container py-4">
+        <h1 class="text-center mb-4">교회 회계 장부</h1>
         
-        // Firestore 초기화
-        db = firebase.firestore();
-        db.settings({
-            merge: true,  // 설정 병합 허용
-            experimentalForceLongPolling: true  // 하나의 폴링 옵션만 사용
-        });
-
-        // Auth 초기화
-        auth = firebase.auth();
-        
-        // 익명 인증
-        try {
-            await auth.signInAnonymously();
-            console.log('익명 인증 성공');
-        } catch (authError) {
-            console.warn('익명 인증 실패:', authError);
-        }
-
-        console.log('Firebase 초기화 성공');
-        return true;
-
-    } catch (error) {
-        console.error('Firebase 초기화 실패:', error);
-        alert('데이터베이스 연결에 실패했습니다.');
-        return false;
-    }
-}
-
-// updateUI 함수를 먼저 정의
-function updateUI() {
-    const desktopList = document.getElementById('desktopTransactionList');
-    const mobileList = document.getElementById('mobileTransactionList');
-    const totalItemsSpan = document.getElementById('totalItems');
-    
-    if (!desktopList || !mobileList) {
-        console.error('Transaction list elements not found');
-        return;
-    }
-
-    // 필터링된 거래 내역 가져오기
-    const filteredTransactions = getFilteredTransactions();
-    filteredTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-    // 총 아이템 수 표시
-    if (totalItemsSpan) {
-        totalItemsSpan.textContent = filteredTransactions.length;
-    }
-
-    // 페이지네이션 계산
-    const totalPages = Math.ceil(filteredTransactions.length / pageSize);
-    const startIndex = (currentPage - 1) * pageSize;
-    const endIndex = Math.min(startIndex + pageSize, filteredTransactions.length);
-    const currentTransactions = filteredTransactions.slice(startIndex, endIndex);
-
-    // 페이지네이션 UI 업데이트
-    updatePagination(totalPages);
-
-    if (currentTransactions.length === 0) {
-        const emptyMessage = `
-            <div class="text-center py-4 text-muted">
-                <i class="bi bi-inbox fs-2 mb-2"></i>
-                <p class="mb-0">내역이 없습니다</p>
-            </div>
-        `;
-        desktopList.innerHTML = `<tr><td colspan="6">${emptyMessage}</td></tr>`;
-        mobileList.innerHTML = emptyMessage;
-    } else {
-        // 데스크톱 뷰 업데이트
-        desktopList.innerHTML = currentTransactions.map(transaction => `
-            <tr>
-                <td class="date-cell">${transaction.date}</td>
-                <td class="type-cell">
-                    <span class="badge ${transaction.type === '수입' ? 'bg-success' : 'bg-danger'}">
-                        ${transaction.type}
-                    </span>
-                </td>
-                <td class="desc-cell">${transaction.description}</td>
-                <td class="amount-cell text-${transaction.type === '수입' ? 'success' : 'danger'}">
-                    ${formatCurrency(transaction.amount)}
-                </td>
-                <td class="receipt-cell">
-                    ${transaction.receiptData ? 
-                        `<img src="${transaction.receiptData}" 
-                             alt="영수증" 
-                             class="receipt-thumbnail" 
-                             onclick="showReceiptModal('${transaction.receiptData}')"
-                             style="cursor: pointer;">` : 
-                        '-'}
-                </td>
-                <td class="action-cell">
-                    <div class="d-flex gap-1">
-                        <button class="btn btn-edit btn-sm" onclick="editTransaction('${transaction.id}')">
-                            <i class="bi bi-pencil-square"></i> 수정
-                        </button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteTransaction('${transaction.id}')">
-                            <i class="bi bi-trash3-fill"></i> 삭제
-                        </button>
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h2 class="card-title h4" id="formTitle">새로운 항목 추가</h2>
+                <form id="transactionForm" class="row g-3">
+                    <div class="col-md-6 col-lg-3">
+                        <label for="date" class="form-label">날짜</label>
+                        <input type="date" class="form-control" id="date" required>
                     </div>
-                </td>
-            </tr>
-        `).join('');
-
-        // 모바일 뷰 업데이트
-        mobileList.innerHTML = `
-            <div class="transaction-cards">
-                ${currentTransactions.map(transaction => `
-                    <div class="transaction-card">
-                        <div class="card-header">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="date">${transaction.date}</span>
-                                <span class="badge ${transaction.type === '수입' ? 'bg-success' : 'bg-danger'}">${transaction.type}</span>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <div class="description-amount">
-                                <div class="description">${transaction.description}</div>
-                                <div class="amount text-${transaction.type === '수입' ? 'success' : 'danger'} fw-bold">
-                                    ${formatCurrency(transaction.amount)}
-                                </div>
-                            </div>
-                            <div class="d-flex justify-content-between align-items-center">
-                                ${transaction.receiptData ? `
-                                    <div class="receipt-image">
-                                        <img src="${transaction.receiptData}" 
-                                             alt="영수증" 
-                                             class="receipt-thumbnail-mobile" 
-                                             onclick="showReceiptModal('${transaction.receiptData}')">
-                                    </div>
-                                ` : '<div></div>'}
-                                <div class="d-flex gap-2">
-                                    <button class="btn btn-edit btn-sm" onclick="editTransaction('${transaction.id}')">
-                                        <i class="bi bi-pencil-square"></i> 수정
-                                    </button>
-                                    <button class="btn btn-danger btn-sm" onclick="deleteTransaction('${transaction.id}')">
-                                        <i class="bi bi-trash3-fill"></i> 삭제
-                                    </button>
-                                </div>
-                            </div>
+                    <div class="col-md-6 col-lg-2">
+                        <label for="type" class="form-label">구분</label>
+                        <select class="form-select" id="type" required>
+                            <option value="수입">수입</option>
+                            <option value="지출">지출</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6 col-lg-3">
+                        <label for="description" class="form-label">내역</label>
+                        <input type="text" class="form-control" id="description" placeholder="내역" required>
+                    </div>
+                    <div class="col-md-6 col-lg-2">
+                        <label for="amount" class="form-label">금액</label>
+                        <div class="input-group">
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="amount" 
+                                   placeholder="금액" 
+                                   required 
+                                   pattern="[0-9,]*"
+                                   oninput="formatAmount(this)"
+                                   onblur="this.value = this.value.replace(/[^\d]/g, '')"
+                                   style="-webkit-appearance: none; -moz-appearance: textfield; appearance: textfield;">
+                            <span class="input-group-text">원</span>
                         </div>
                     </div>
-                `).join('')}
+                    <div class="col-md-8 col-lg-2">
+                        <label for="receipt" class="form-label">영수증</label>
+                        <input type="file" class="form-control" id="receipt" accept="image/*">
+                    </div>
+                    <div class="col-12">
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-start">
+                            <button type="submit" id="submitBtn" class="btn btn-primary">추가</button>
+                            <button type="button" id="cancelBtn" class="btn btn-secondary" onclick="cancelEdit()" style="display: none;">취소</button>
+                        </div>
+                    </div>
+                </form>
             </div>
-        `;
-    }
+        </div>
 
-    // 필터 옵션 업데이트
-    setupYearFilter();
-    setupMonthFilter();
-    restoreFilterValues();
-}
-
-// getFilteredTransactions 함수 정의
-function getFilteredTransactions() {
-    const yearFilter = document.getElementById('yearFilter')?.value || '';
-    const monthFilter = document.getElementById('monthFilter')?.value || '';
-    
-    return transactions.filter(transaction => {
-        if (!transaction.date) return false;
-        
-        const transactionDate = new Date(transaction.date);
-        const transactionYear = transactionDate.getFullYear().toString();
-        const transactionMonth = (transactionDate.getMonth() + 1).toString().padStart(2, '0');
-        
-        if (yearFilter && transactionYear !== yearFilter) return false;
-        if (monthFilter && transactionMonth !== monthFilter) return false;
-        
-        return true;
-    });
-}
-
-// 거래내역 로드 함수
-async function loadTransactions() {
-    if (!db) {
-        const initialized = await initializeFirebase();
-        if (!initialized) return;
-    }
-
-    try {
-        console.log('거래내역 로딩 시작');
-        
-        const snapshot = await db.collection('transactions')
-            .orderBy('timestamp', 'desc')
-            .get();
-
-        transactions = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-            timestamp: doc.data().timestamp ? 
-                new Date(doc.data().timestamp.seconds * 1000) : 
-                new Date()
-        }));
-
-        console.log(`${transactions.length}개의 거래내역을 로드했습니다.`);
-        updateUI();
-
-    } catch (error) {
-        console.error('거래내역 로딩 중 오류:', error);
-        handleLoadError(error);
-    }
-}
-
-// 오류 처리 함수
-function handleLoadError(error) {
-    let message = '데이터를 불러오는 중 오류가 발생했습니다.';
-    
-    if (error.code) {
-        switch (error.code) {
-            case 'permission-denied':
-                message = '데이터베이스 접근 권한이 없습니다.';
-                break;
-            case 'unavailable':
-                message = '데이터베이스 연결이 불안정합니다.';
-                break;
-            default:
-                message = `오류가 발생했습니다: ${error.code}`;
-        }
-    }
-    
-    alert(message);
-    transactions = [];
-    updateUI();
-}
-
-// 재연결 시도 함수
-async function retryConnection() {
-    try {
-        await db.terminate();
-        await initializeFirebase();
-        await loadTransactions();
-    } catch (error) {
-        console.error('재연결 시도 실패:', error);
-    }
-}
-
-// 네트워크 상태 모니터링
-window.addEventListener('online', () => {
-    console.log('온라인 상태 감지');
-    retryConnection();
-});
-
-window.addEventListener('offline', () => {
-    console.log('오프라인 상태 감지');
-});
-
-// 거래내역 추가 함수 수정
-async function addTransaction(e) {
-    e.preventDefault();
-    
-    if (!db) {
-        alert('데이터베이스 연결이 필요합니다.');
-        return;
-    }
-
-    const submitBtn = document.getElementById('submitBtn');
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 처리중...';
-
-    try {
-        const transaction = {
-            date: document.getElementById('date').value,
-            type: document.getElementById('type').value,
-            description: document.getElementById('description').value,
-            amount: parseInt(document.getElementById('amount').value.replace(/,/g, '')),
-            timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        };
-
-        const receiptFile = document.getElementById('receipt').files[0];
-        if (receiptFile) {
-            const receiptData = await optimizeImage(receiptFile);
-            transaction.receiptData = receiptData;
-        }
-
-        const docRef = await db.collection('transactions').add(transaction);
-        console.log('거래내역 추가 성공:', docRef.id);
-
-        // 로컬 배열에 추가
-        const newTransaction = {
-            id: docRef.id,
-            ...transaction,
-            timestamp: new Date()
-        };
-        transactions.push(newTransaction);
-
-        updateUI();
-        e.target.reset();
-        alert('거래내역이 추가되었습니다.');
-
-    } catch (error) {
-        console.error('거래내역 추가 중 오류:', error);
-        alert('거래내역 추가에 실패했습니다.');
-    } finally {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = '추가';
-    }
-}
-
-// 수정 모드로 전환
-function editTransaction(id) {
-    editingId = id;
-    const transaction = transactions.find(t => t.id === id);
-    
-    if (!transaction) return;
-
-    // 폼 필드에 데이터 설정
-    document.getElementById('editDate').value = transaction.date;
-    document.getElementById('editType').value = transaction.type;
-    document.getElementById('editDescription').value = transaction.description;
-    document.getElementById('editAmount').value = transaction.amount.toLocaleString('ko-KR');
-
-    // 현재 영수증 이미지 표시
-    const previewDiv = document.getElementById('currentReceiptPreview');
-    if (transaction.receiptData) {
-        previewDiv.innerHTML = `
-            <div class="mt-2">
-                <p class="mb-2">현재 영수증:</p>
-                <img src="${transaction.receiptData}" 
-                     alt="현재 영수증" 
-                     class="img-thumbnail" 
-                     style="max-height: 200px;">
+        <div class="row mb-4">
+            <div class="col-md-4 mb-3">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h3 class="h5">현재 잔액</h3>
+                        <p class="h3" id="totalBalance">0원</p>
+                    </div>
+                </div>
             </div>
-        `;
-    } else {
-        previewDiv.innerHTML = '';
-    }
+            <div class="col-md-4 mb-3">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h3 class="h5">총 수입</h3>
+                        <p class="h3 text-success" id="totalIncome">0원</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-3">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h3 class="h5">총 지출</h3>
+                        <p class="h3 text-danger" id="totalExpense">0원</p>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-    editModal.show();
-}
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2 class="card-title h4 mb-0">거래 내역</h2>
+                    <div class="d-flex gap-2">
+                        <select id="yearFilter" class="form-select form-select-sm" style="width: auto;">
+                            <option value="">전체 년도</option>
+                        </select>
+                        <select id="monthFilter" class="form-select form-select-sm" style="width: auto;">
+                            <option value="">전체 월</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="table-responsive d-none d-md-block">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>날짜</th>
+                                <th>구분</th>
+                                <th>내역</th>
+                                <th>금액</th>
+                                <th>영수증</th>
+                                <th>작업</th>
+                            </tr>
+                        </thead>
+                        <tbody id="desktopTransactionList"></tbody>
+                    </table>
+                </div>
+                <div class="d-md-none" id="mobileTransactionList"></div>
+                
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <div class="d-flex align-items-center">
+                        <select id="pageSize" class="form-select form-select-sm me-2" style="width: auto;">
+                            <option value="10">10개씩</option>
+                            <option value="20">20개씩</option>
+                            <option value="30">30개씩</option>
+                        </select>
+                        <span class="text-muted small">총 <span id="totalItems">0</span>개</span>
+                    </div>
+                    <nav aria-label="거래내역 페이지 탐색">
+                        <ul class="pagination pagination-sm mb-0" id="pagination"></ul>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
 
-// 수정 취소
-function cancelEdit() {
-    editingId = null;
-    document.getElementById('transactionForm').reset();
-    document.getElementById('formTitle').textContent = '새로운 항목 추가';
-    document.getElementById('submitBtn').textContent = '추가';
-    document.getElementById('cancelBtn').style.display = 'none';
-}
+    <!-- 영수증 모달 -->
+    <div class="modal fade" id="receiptModal" tabindex="-1" aria-labelledby="receiptModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="receiptModalLabel">영수증 이미지</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <img id="modalReceiptImage" src="" alt="영수증" style="max-width: 100%; max-height: 80vh;">
+                </div>
+            </div>
+        </div>
+    </div>
 
-// 거래 삭제
-async function deleteTransaction(id) {
-    try {
-        await db.collection('transactions').doc(id).delete();
-        transactions = transactions.filter(t => t.id !== id);
-        updateUI();
-    } catch (error) {
-        console.error("거래 삭제 중 오류 발생:", error);
-        alert("거래를 삭제하는 중 오류가 발생했습니다.");
-    }
-}
+    <!-- 수정 모달 -->
+    <div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editModalLabel">거래 내역 수정</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editForm" class="row g-3">
+                        <div class="col-md-6">
+                            <label for="editDate" class="form-label">날짜</label>
+                            <input type="date" class="form-control" id="editDate" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="editType" class="form-label">구분</label>
+                            <select class="form-select" id="editType" required>
+                                <option value="수입">수입</option>
+                                <option value="지출">지출</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label for="editDescription" class="form-label">내역</label>
+                            <input type="text" class="form-control" id="editDescription" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="editAmount" class="form-label">금액</label>
+                            <div class="input-group">
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="editAmount" 
+                                       required 
+                                       pattern="[0-9,]*"
+                                       oninput="formatAmount(this)"
+                                       onblur="this.value = this.value.replace(/[^\d]/g, '')"
+                                       style="-webkit-appearance: none; -moz-appearance: textfield; appearance: textfield;">
+                                <span class="input-group-text">원</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="editReceipt" class="form-label">영수증</label>
+                            <input type="file" class="form-control" id="editReceipt" accept="image/*">
+                        </div>
+                        <div id="currentReceiptPreview" class="col-12"></div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
+                    <button type="button" class="btn btn-primary" onclick="saveEdit()">저장</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-function formatCurrency(amount) {
-    return new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(amount);
-}
-
-// 영수증 모달 표시
-function showReceiptModal(receiptData) {
-    const modalImage = document.getElementById('modalReceiptImage');
-    modalImage.src = receiptData;
-    
-    const receiptModal = new bootstrap.Modal(document.getElementById('receiptModal'));
-    receiptModal.show();
-}
-
-// 년도 필터 옵션 설정 함수 수정
-function setupYearFilter() {
-    const yearFilter = document.getElementById('yearFilter');
-    if (!yearFilter) return;
-
-    const currentValue = yearFilter.value; // 현재 선택된 값 저장
-    
-    // 유효한 날짜가 있는 거래 내역에서만 년도 추출
-    const years = new Set(
-        transactions
-            .filter(t => t.date)
-            .map(t => new Date(t.date).getFullYear().toString())
-    );
-    const sortedYears = Array.from(years).sort((a, b) => b - a);
-    
-    yearFilter.innerHTML = '<option value="">전체 년도</option>';
-    sortedYears.forEach(year => {
-        yearFilter.innerHTML += `<option value="${year}">${year}년</option>`;
-    });
-    
-    yearFilter.value = currentValue; // 이전 선택값 복원
-}
-
-// 월 필터 초기화 함수 추가
-function setupMonthFilter() {
-    const monthFilter = document.getElementById('monthFilter');
-    if (!monthFilter) return;
-
-    const currentValue = monthFilter.value; // 현재 선택된 값 저장
-    
-    monthFilter.innerHTML = `
-        <option value="">전체 월</option>
-        ${Array.from({length: 12}, (_, i) => {
-            const month = (i + 1).toString().padStart(2, '0');
-            return `<option value="${month}">${i + 1}월</option>`;
-        }).join('')}
-    `;
-    
-    monthFilter.value = currentValue; // 이전 선택값 복원
-}
-
-// 페이지 변경 함수 수정
-function changePage(newPage, event) {
-    if (event) {
-        event.preventDefault(); // 기본 동작 방지
-    }
-    
-    // 현재 스크롤 위치 저장
-    lastScrollPosition = window.scrollY;
-    
-    const totalPages = Math.ceil(getFilteredTransactions().length / pageSize);
-    
-    if (newPage < 1 || newPage > totalPages) return;
-    
-    currentPage = newPage;
-    updateUI();
-    
-    // 이전 스크롤 위치로 복원
-    setTimeout(() => {
-        window.scrollTo({
-            top: lastScrollPosition,
-            behavior: 'instant' // 부드러운 스크롤 대신 즉시 이동
-        });
-    }, 0);
-}
-
-// 페이지네이션 UI 업데이트 함수 수정
-function updatePagination(totalPages) {
-    const pagination = document.getElementById('pagination');
-    if (!pagination) return;
-
-    let paginationHTML = '';
-
-    // 이전 페이지 버튼
-    paginationHTML += `
-        <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
-            <a class="page-link" href="#" onclick="changePage(${currentPage - 1}, event)" aria-label="이전">
-                <span aria-hidden="true">&laquo;</span>
-            </a>
-        </li>
-    `;
-
-    // 페이지 번호 버튼
-    for (let i = 1; i <= totalPages; i++) {
-        if (
-            i === 1 || 
-            i === totalPages || 
-            (i >= currentPage - 2 && i <= currentPage + 2)
-        ) {
-            paginationHTML += `
-                <li class="page-item ${i === currentPage ? 'active' : ''}">
-                    <a class="page-link" href="#" onclick="changePage(${i}, event)">${i}</a>
-                </li>
-            `;
-        } else if (
-            i === currentPage - 3 ||
-            i === currentPage + 3
-        ) {
-            paginationHTML += `
-                <li class="page-item disabled">
-                    <span class="page-link">...</span>
-                </li>
-            `;
-        }
-    }
-
-    // 다음 페이지 버튼
-    paginationHTML += `
-        <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
-            <a class="page-link" href="#" onclick="changePage(${currentPage + 1}, event)" aria-label="다음">
-                <span aria-hidden="true">&raquo;</span>
-            </a>
-        </li>
-    `;
-
-    pagination.innerHTML = paginationHTML;
-}
-
-// CSS 스타일 추가를 위한 스타일 태그 생성
-const style = document.createElement('style');
-style.textContent = `
-    .pagination {
-        position: sticky;
-        bottom: 1rem;
-        background: white;
-        padding: 0.5rem;
-        border-radius: 0.25rem;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        z-index: 1000;
-    }
-
-    @media (max-width: 768px) {
-        .pagination {
-            justify-content: center;
-            margin-top: 1rem;
-        }
-        
-        .pagination .page-link {
-            padding: 0.375rem 0.75rem;
-        }
-    }
-`;
-document.head.appendChild(style);
-
-// 페이지 크기 변경 이벤트 리스너
-document.addEventListener('DOMContentLoaded', async () => {
-    try {
-        await initializeFirebase();
-        await loadTransactions();
-        
-        const transactionForm = document.getElementById('transactionForm');
-        if (transactionForm) {
-            transactionForm.addEventListener('submit', addTransaction);
-        }
-        
-        // 페이지 크기 변경 이벤트 리스너
-        const pageSizeSelect = document.getElementById('pageSize');
-        if (pageSizeSelect) {
-            pageSizeSelect.addEventListener('change', (e) => {
-                pageSize = parseInt(e.target.value);
-                currentPage = 1;
-                updateUI();
-            });
-        }
-
-        editModal = new bootstrap.Modal(document.getElementById('editModal'));
-        
-        // 필터 변경 이벤트 리스너
-        const yearFilter = document.getElementById('yearFilter');
-        const monthFilter = document.getElementById('monthFilter');
-        
-        if (yearFilter && monthFilter) {
-            yearFilter.addEventListener('change', handleFilterChange);
-            monthFilter.addEventListener('change', handleFilterChange);
-            
-            // 초기 필터 설정
-            setupMonthFilter();
-        }
-    } catch (error) {
-        console.error('초기화 중 오류:', error);
-        handleLoadError(error);
-    }
-});
-
-// resize 이벤트 핸들러 수정
-let resizeTimeout;
-window.addEventListener('resize', () => {
-    clearTimeout(resizeTimeout);
-    resizeTimeout = setTimeout(() => {
-        updateUI();
-    }, 250); // 디바운스 처리
-});
-
-// 숫자 입력 시 천단위 콤마 표시
-function formatAmount(input) {
-    // 숫자와 쉼표만 남기고 모두 제거
-    let value = input.value.replace(/[^\d,]/g, '');
-    // 쉼표 제거
-    value = value.replace(/,/g, '');
-    if (value) {
-        // 숫자를 정수로 변환 후 천단위 쉼표 추가
-        value = parseInt(value).toLocaleString('ko-KR');
-        input.value = value;
-    }
-}
-
-// 수정 내용 저장
-async function saveEdit() {
-    try {
-        const editForm = document.getElementById('editForm');
-        if (!editForm.checkValidity()) {
-            editForm.reportValidity();
-            return;
-        }
-
-        const transaction = {
-            date: document.getElementById('editDate').value,
-            type: document.getElementById('editType').value,
-            description: document.getElementById('editDescription').value,
-            amount: parseInt(document.getElementById('editAmount').value.replace(/,/g, '')),
-            timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        };
-
-        const receiptFile = document.getElementById('editReceipt').files[0];
-        const existingTransaction = transactions.find(t => t.id === editingId);
-
-        if (receiptFile) {
-            // 새 영수증 이미지가 있는 경우
-            try {
-                const receiptData = await optimizeImage(receiptFile);
-                transaction.receiptData = receiptData;
-            } catch (error) {
-                alert("영수증 이미지 처리 중 오류가 발생했습니다.");
-                throw error;
-            }
-        } else if (existingTransaction.receiptData) {
-            // 기존 영수증 유지
-            transaction.receiptData = existingTransaction.receiptData;
-        }
-
-        // Firestore 업데이트
-        await db.collection('transactions').doc(editingId).update(transaction);
-
-        // 로컬 데이터 업데이트
-        const index = transactions.findIndex(t => t.id === editingId);
-        transactions[index] = { ...transaction, id: editingId };
-
-        // UI 업데이트
-        updateUI();
-        editModal.hide();
-        
-        // 성공 메시지
-        alert('거래 내역이 수정되었습니다.');
-    } catch (error) {
-        console.error("수정 중 오류 발생:", error);
-        alert("수정 중 오류가 발생했습니다.");
-    }
-}
-
-// 필터 값 저장 함수
-function saveFilterValues() {
-    currentYearFilter = document.getElementById('yearFilter').value;
-    currentMonthFilter = document.getElementById('monthFilter').value;
-}
-
-// 필터 값 복원 함수
-function restoreFilterValues() {
-    const yearFilter = document.getElementById('yearFilter');
-    const monthFilter = document.getElementById('monthFilter');
-    
-    if (yearFilter && monthFilter) {
-        yearFilter.value = currentYearFilter;
-        monthFilter.value = currentMonthFilter;
-    }
-}
-
-// 필터 변경 이벤트 핸들러
-function handleFilterChange() {
-    currentPage = 1;
-    saveFilterValues();
-    updateUI();
-}
-
-// 이미지를 Base64로 변환
-function getBase64(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = error => reject(error);
-    });
-}
-
-// 이미지 최적화 함수 개선
-async function optimizeImage(file, maxWidth = 800) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const img = new Image();
-            img.onload = function() {
-                const canvas = document.createElement('canvas');
-                let width = img.width;
-                let height = img.height;
-
-                // 이미지 크기 조정
-                if (width > maxWidth) {
-                    height = Math.round((height * maxWidth) / width);
-                    width = maxWidth;
-                }
-
-                canvas.width = width;
-                canvas.height = height;
-
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
-
-                // 이미지 품질을 점진적으로 낮추며 최적화
-                let quality = 0.7;
-                let optimizedDataUrl;
-                let iteration = 0;
-                const maxIterations = 5;
-
-                do {
-                    optimizedDataUrl = canvas.toDataURL('image/jpeg', quality);
-                    quality -= 0.1;
-                    iteration++;
-                } while (optimizedDataUrl.length > 1024 * 1024 && iteration < maxIterations && quality > 0.1);
-
-                resolve(optimizedDataUrl);
-            };
-            img.onerror = reject;
-            img.src = e.target.result;
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
-}
-
-// 파일 크기 검사 함수
-function checkFileSize(file) {
-    const maxSize = 20 * 1024 * 1024; // 20MB
-    if (file.size > maxSize) {
-        throw new Error(`파일 크기가 너무 큽니다. 20MB 이하의 파일만 업로드 가능합니다. (현재 크기: ${(file.size / (1024 * 1024)).toFixed(1)}MB)`);
-    }
-}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
