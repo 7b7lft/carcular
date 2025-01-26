@@ -20,13 +20,156 @@ try {
     alert('데이터베이스 연결에 실패했습니다. 페이지를 새로고침해주세요.');
 }
 
-// 전역 변수
+// 전역 변수 선언
 let transactions = [];
+let currentPage = 1;
+let pageSize = 10;
+let lastScrollPosition = 0;
 let currentYearFilter = '';
 let currentMonthFilter = '';
 let editModal = null;
-let currentPage = 1;
-let pageSize = 10;
+
+// updateUI 함수를 먼저 정의
+function updateUI() {
+    const desktopList = document.getElementById('desktopTransactionList');
+    const mobileList = document.getElementById('mobileTransactionList');
+    const totalItemsSpan = document.getElementById('totalItems');
+    
+    if (!desktopList || !mobileList) {
+        console.error('Transaction list elements not found');
+        return;
+    }
+
+    // 필터링된 거래 내역 가져오기
+    const filteredTransactions = getFilteredTransactions();
+    filteredTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    // 총 아이템 수 표시
+    if (totalItemsSpan) {
+        totalItemsSpan.textContent = filteredTransactions.length;
+    }
+
+    // 페이지네이션 계산
+    const totalPages = Math.ceil(filteredTransactions.length / pageSize);
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = Math.min(startIndex + pageSize, filteredTransactions.length);
+    const currentTransactions = filteredTransactions.slice(startIndex, endIndex);
+
+    // 페이지네이션 UI 업데이트
+    updatePagination(totalPages);
+
+    if (currentTransactions.length === 0) {
+        const emptyMessage = `
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-inbox fs-2 mb-2"></i>
+                <p class="mb-0">내역이 없습니다</p>
+            </div>
+        `;
+        desktopList.innerHTML = `<tr><td colspan="6">${emptyMessage}</td></tr>`;
+        mobileList.innerHTML = emptyMessage;
+    } else {
+        // 데스크톱 뷰 업데이트
+        desktopList.innerHTML = currentTransactions.map(transaction => `
+            <tr>
+                <td class="date-cell">${transaction.date}</td>
+                <td class="type-cell">
+                    <span class="badge ${transaction.type === '수입' ? 'bg-success' : 'bg-danger'}">
+                        ${transaction.type}
+                    </span>
+                </td>
+                <td class="desc-cell">${transaction.description}</td>
+                <td class="amount-cell text-${transaction.type === '수입' ? 'success' : 'danger'}">
+                    ${formatCurrency(transaction.amount)}
+                </td>
+                <td class="receipt-cell">
+                    ${transaction.receiptData ? 
+                        `<img src="${transaction.receiptData}" 
+                             alt="영수증" 
+                             class="receipt-thumbnail" 
+                             onclick="showReceiptModal('${transaction.receiptData}')"
+                             style="cursor: pointer;">` : 
+                        '-'}
+                </td>
+                <td class="action-cell">
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-edit btn-sm" onclick="editTransaction('${transaction.id}')">
+                            <i class="bi bi-pencil-square"></i> 수정
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteTransaction('${transaction.id}')">
+                            <i class="bi bi-trash3-fill"></i> 삭제
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+
+        // 모바일 뷰 업데이트
+        mobileList.innerHTML = `
+            <div class="transaction-cards">
+                ${currentTransactions.map(transaction => `
+                    <div class="transaction-card">
+                        <div class="card-header">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="date">${transaction.date}</span>
+                                <span class="badge ${transaction.type === '수입' ? 'bg-success' : 'bg-danger'}">${transaction.type}</span>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="description-amount">
+                                <div class="description">${transaction.description}</div>
+                                <div class="amount text-${transaction.type === '수입' ? 'success' : 'danger'} fw-bold">
+                                    ${formatCurrency(transaction.amount)}
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                ${transaction.receiptData ? `
+                                    <div class="receipt-image">
+                                        <img src="${transaction.receiptData}" 
+                                             alt="영수증" 
+                                             class="receipt-thumbnail-mobile" 
+                                             onclick="showReceiptModal('${transaction.receiptData}')">
+                                    </div>
+                                ` : '<div></div>'}
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-edit btn-sm" onclick="editTransaction('${transaction.id}')">
+                                        <i class="bi bi-pencil-square"></i> 수정
+                                    </button>
+                                    <button class="btn btn-danger btn-sm" onclick="deleteTransaction('${transaction.id}')">
+                                        <i class="bi bi-trash3-fill"></i> 삭제
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+
+    // 필터 옵션 업데이트
+    setupYearFilter();
+    setupMonthFilter();
+    restoreFilterValues();
+}
+
+// getFilteredTransactions 함수 정의
+function getFilteredTransactions() {
+    const yearFilter = document.getElementById('yearFilter')?.value || '';
+    const monthFilter = document.getElementById('monthFilter')?.value || '';
+    
+    return transactions.filter(transaction => {
+        if (!transaction.date) return false;
+        
+        const transactionDate = new Date(transaction.date);
+        const transactionYear = transactionDate.getFullYear().toString();
+        const transactionMonth = (transactionDate.getMonth() + 1).toString().padStart(2, '0');
+        
+        if (yearFilter && transactionYear !== yearFilter) return false;
+        if (monthFilter && transactionMonth !== monthFilter) return false;
+        
+        return true;
+    });
+}
 
 // 데이터베이스 연결 확인
 async function checkDatabaseConnection() {
@@ -320,25 +463,6 @@ function showReceiptModal(receiptData) {
     receiptModal.show();
 }
 
-// 필터링된 거래 내역 가져오기
-function getFilteredTransactions() {
-    const yearFilter = document.getElementById('yearFilter').value;
-    const monthFilter = document.getElementById('monthFilter').value;
-    
-    return transactions.filter(transaction => {
-        if (!transaction.date) return false;
-        
-        const transactionDate = new Date(transaction.date);
-        const transactionYear = transactionDate.getFullYear().toString();
-        const transactionMonth = (transactionDate.getMonth() + 1).toString().padStart(2, '0');
-        
-        if (yearFilter && transactionYear !== yearFilter) return false;
-        if (monthFilter && transactionMonth !== monthFilter) return false;
-        
-        return true;
-    });
-}
-
 // 년도 필터 옵션 설정 함수 수정
 function setupYearFilter() {
     const yearFilter = document.getElementById('yearFilter');
@@ -379,9 +503,6 @@ function setupMonthFilter() {
     
     monthFilter.value = currentValue; // 이전 선택값 복원
 }
-
-// 현재 스크롤 위치 저장 변수
-let lastScrollPosition = 0;
 
 // 페이지 변경 함수 수정
 function changePage(newPage, event) {
