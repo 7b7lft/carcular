@@ -9,12 +9,17 @@ const firebaseConfig = {
     measurementId: "G-YBWK7K8L5E"
 };
 
-// Firebase 초기화
+// Firebase 초기화 확인
 if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
+    try {
+        firebase.initializeApp(firebaseConfig);
+        console.log('Firebase 초기화 성공');
+    } catch (error) {
+        console.error('Firebase 초기화 실패:', error);
+    }
 }
 
-// Firestore 데이터베이스 참조 생성
+// Firestore 데이터베이스 참조
 const db = firebase.firestore();
 
 // 전역 변수
@@ -127,101 +132,91 @@ function checkFileSize(file) {
 
 // loadTransactions 함수 수정
 async function loadTransactions() {
+    console.log('거래내역 로딩 시작'); // 디버깅 로그
     try {
-        // 데이터베이스 연결 확인
-        if (!await checkDatabaseConnection()) {
-            return;
-        }
-
         const snapshot = await db.collection('transactions').get();
+        console.log('Firestore 쿼리 결과:', snapshot.size); // 디버깅 로그
+
         transactions = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         }));
-        console.log('거래 내역 로드됨:', transactions.length, '건');
+
+        console.log('로드된 거래내역:', transactions.length); // 디버깩 로그
         updateUI();
     } catch (error) {
-        console.error("거래 내역을 불러오는 중 오류 발생:", error);
-        alert("거래 내역을 불러오는 중 오류가 발생했습니다.");
+        console.error('거래내역 로딩 중 오류:', error);
+        alert('거래내역을 불러오는데 실패했습니다.');
     }
 }
 
 // addTransaction 함수 수정
 async function addTransaction(e) {
     e.preventDefault();
+    console.log('거래내역 추가 시작'); // 디버깅 로그
 
-    const submitBtn = document.getElementById('submitBtn');
-    
+    const form = e.target;
+    const submitBtn = form.querySelector('button[type="submit"]');
+
     try {
-        // 데이터베이스 연결 확인
-        if (!await checkDatabaseConnection()) {
-            return;
-        }
-
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 처리중...';
-        
         // 입력값 검증
-        const date = document.getElementById('date').value;
-        const type = document.getElementById('type').value;
-        const description = document.getElementById('description').value;
-        const amountValue = document.getElementById('amount').value.replace(/,/g, '');
+        const date = form.querySelector('#date').value;
+        const type = form.querySelector('#type').value;
+        const description = form.querySelector('#description').value;
+        const amountStr = form.querySelector('#amount').value;
+        const amount = parseInt(amountStr.replace(/,/g, ''));
 
-        if (!date || !type || !description || !amountValue) {
-            throw new Error('모든 필수 항목을 입력해주세요.');
+        console.log('입력값:', { date, type, description, amount }); // 디버깅 로그
+
+        if (!date || !type || !description || isNaN(amount)) {
+            throw new Error('모든 필드를 올바르게 입력해주세요.');
         }
 
+        // 버튼 비활성화 및 로딩 표시
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 처리중...';
+
+        // 거래내역 객체 생성
         const transaction = {
             date,
             type,
             description,
-            amount: parseInt(amountValue),
+            amount,
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
         };
 
-        console.log('추가할 거래 내역:', transaction); // 디버깅용
-
-        const receiptFile = document.getElementById('receipt').files[0];
-        if (receiptFile) {
-            try {
-                checkFileSize(receiptFile);
-                const receiptData = await optimizeImage(receiptFile);
-                transaction.receiptData = receiptData;
-            } catch (error) {
-                alert(error.message || "이미지 처리 중 오류가 발생했습니다.");
-                throw error;
-            }
+        // 영수증 처리
+        const receiptInput = form.querySelector('#receipt');
+        if (receiptInput && receiptInput.files.length > 0) {
+            const receiptFile = receiptInput.files[0];
+            const receiptData = await optimizeImage(receiptFile);
+            transaction.receiptData = receiptData;
         }
 
-        // Firestore에 추가
+        console.log('Firestore에 추가할 데이터:', transaction); // 디버깅 로그
+
+        // Firestore에 데이터 추가
         const docRef = await db.collection('transactions').add(transaction);
-        console.log('Firestore에 추가됨, ID:', docRef.id); // 디버깅용
+        console.log('Firestore 문서 ID:', docRef.id); // 디버깅 로그
 
         // 로컬 배열에 추가
-        const newTransaction = {
-            id: docRef.id,
-            ...transaction
-        };
+        const newTransaction = { id: docRef.id, ...transaction };
         transactions.push(newTransaction);
 
-        // 필터 초기화
-        currentYearFilter = '';
-        currentMonthFilter = '';
-        const yearFilter = document.getElementById('yearFilter');
-        const monthFilter = document.getElementById('monthFilter');
-        if (yearFilter) yearFilter.value = '';
-        if (monthFilter) monthFilter.value = '';
-        
         // UI 업데이트
         updateUI();
-        e.target.reset();
-
-        alert('거래 내역이 추가되었습니다.');
+        
+        // 폼 초기화
+        form.reset();
+        
+        // 성공 메시지
+        alert('거래내역이 성공적으로 추가되었습니다.');
 
     } catch (error) {
-        console.error("거래 처리 중 오류 발생:", error);
-        alert(error.message || "거래를 처리하는 중 오류가 발생했습니다.");
+        console.error('거래내역 추가 중 오류:', error); // 자세한 에러 로그
+        alert(`거래내역 추가 실패: ${error.message}`);
     } finally {
+        // 버튼 상태 복구
         submitBtn.disabled = false;
         submitBtn.innerHTML = '추가';
     }
@@ -575,6 +570,14 @@ document.addEventListener('DOMContentLoaded', () => {
             currentPage = 1; // 페이지 크기 변경 시 첫 페이지로 이동
             updateUI();
         });
+    }
+
+    const transactionForm = document.getElementById('transactionForm');
+    if (transactionForm) {
+        transactionForm.addEventListener('submit', addTransaction);
+        console.log('폼 이벤트 리스너 등록 완료'); // 디버깅 로그
+    } else {
+        console.error('거래내역 폼을 찾을 수 없습니다.');
     }
 });
 
