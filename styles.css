@@ -421,6 +421,36 @@ input[type="number"] {
         padding: 0.375rem 0.75rem;
         font-size: 0.875rem;
     }
+    
+    /* 영수증 이미지 컨테이너 스타일 */
+    .receipt-image {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+    
+    /* 모바일 영수증 썸네일 스타일 */
+    .receipt-thumbnail-mobile {
+        width: 60px;
+        height: 60px;
+        object-fit: cover;
+        border-radius: 4px;
+        cursor: pointer;
+        border: 1px solid #dee2e6;
+    }
+    
+    /* 거래 내역 카드 내부 여백 조정 */
+    .transaction-card .card-body {
+        padding: 0.75rem;
+    }
+    
+    /* 영수증 이미지가 있는 경우 레이아웃 조정 */
+    .transaction-card .description-amount {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 0.5rem;
+    }
 }
 
 @media (min-width: 769px) {
