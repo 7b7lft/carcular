@@ -1,23 +1,32 @@
-// Firebase 초기화 및 데이터베이스 참조
-const firebaseConfig = {
-    apiKey: "your-api-key",
-    authDomain: "your-auth-domain",
-    projectId: "your-project-id",
-    storageBucket: "your-storage-bucket",
-    messagingSenderId: "your-messaging-sender-id",
-    appId: "your-app-id"
-};
+// Firebase 초기화 및 데이터베이스 참조를 전역 변수로 선언
+let db;
 
-// Firebase 초기화 확인
-try {
-    if (!firebase.apps.length) {
-        firebase.initializeApp(firebaseConfig);
+// Firebase 초기화 함수
+function initializeFirebase() {
+    const firebaseConfig = {
+        apiKey: "AIzaSyBPv_HJB-0E8h8UXYJdGXYwVGvBq6g7PdA",
+        authDomain: "jangbu-2024.firebaseapp.com",
+        projectId: "jangbu-2024",
+        storageBucket: "jangbu-2024.appspot.com",
+        messagingSenderId: "1098234887455",
+        appId: "1:1098234887455:web:c6b5c0d0b82e1c6c2a40e1"
+    };
+
+    try {
+        // Firebase가 이미 초기화되었는지 확인
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        
+        // Firestore 데이터베이스 참조 설정
+        db = firebase.firestore();
+        console.log('Firebase 초기화 성공');
+        return true;
+    } catch (error) {
+        console.error('Firebase 초기화 실패:', error);
+        alert('데이터베이스 연결에 실패했습니다. 페이지를 새로고침해주세요.');
+        return false;
     }
-    const db = firebase.firestore();
-    console.log('Firebase 초기화 성공');
-} catch (error) {
-    console.error('Firebase 초기화 실패:', error);
-    alert('데이터베이스 연결에 실패했습니다. 페이지를 새로고침해주세요.');
 }
 
 // 전역 변수 선언
@@ -276,7 +285,9 @@ async function loadTransactions() {
     try {
         // 데이터베이스 연결 확인
         if (!db) {
-            throw new Error('데이터베이스 연결이 설정되지 않았습니다.');
+            if (!initializeFirebase()) {
+                throw new Error('데이터베이스 초기화 실패');
+            }
         }
 
         console.log('거래내역 로딩 시작');
@@ -290,7 +301,6 @@ async function loadTransactions() {
         transactions = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data(),
-            // timestamp를 Date 객체로 변환
             timestamp: doc.data().timestamp ? doc.data().timestamp.toDate() : new Date()
         }));
 
@@ -608,7 +618,16 @@ style.textContent = `
 document.head.appendChild(style);
 
 // 페이지 크기 변경 이벤트 리스너
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        // Firebase 초기화 후 거래내역 로드
+        if (initializeFirebase()) {
+            await loadTransactions();
+        }
+    } catch (error) {
+        console.error('초기화 중 오류 발생:', error);
+    }
+
     editModal = new bootstrap.Modal(document.getElementById('editModal'));
     
     // 필터 변경 이벤트 리스너
@@ -622,8 +641,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // 초기 필터 설정
         setupMonthFilter();
     }
-    
-    loadTransactions();
 
     const pageSizeSelect = document.getElementById('pageSize');
     if (pageSizeSelect) {
