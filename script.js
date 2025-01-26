@@ -1,11 +1,12 @@
-// Firebase 설정 및 초기화
+// Firebase 설정
 const firebaseConfig = {
     apiKey: "AIzaSyBPv_HJB-0E8h8UXYJdGXYwVGvBq6g7PdA",
     authDomain: "jangbu-2024.firebaseapp.com",
     projectId: "jangbu-2024",
     storageBucket: "jangbu-2024.appspot.com",
     messagingSenderId: "1098234887455",
-    appId: "1:1098234887455:web:c6b5c0d0b82e1c6c2a40e1"
+    appId: "1:1098234887455:web:c6b5c0d0b82e1c6c2a40e1",
+    measurementId: "G-MEASUREMENT_ID"
 };
 
 // 전역 변수
@@ -23,27 +24,44 @@ let isLoading = false;
 // Firebase 초기화 함수
 async function initializeFirebase() {
     try {
-        // Firebase 앱이 이미 초기화되었는지 확인
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
+        // 기존 앱이 있다면 삭제
+        if (firebase.apps.length) {
+            await firebase.app().delete();
         }
 
-        auth = firebase.auth();
+        // Firebase 앱 초기화
+        const app = firebase.initializeApp(firebaseConfig);
+        
+        // Firestore 초기화
         db = firebase.firestore();
-
-        // Firestore 설정
         db.settings({
+            merge: true,  // 설정 병합 허용
             experimentalForceLongPolling: true,
             useFetchStreams: false
         });
 
-        // 익명 인증 사용
-        await auth.signInAnonymously();
+        // Auth 초기화
+        auth = firebase.auth();
+        
+        // 익명 인증
+        try {
+            await auth.signInAnonymously();
+            console.log('익명 인증 성공');
+        } catch (authError) {
+            console.warn('익명 인증 실패:', authError);
+            // 인증 실패해도 계속 진행
+        }
 
         console.log('Firebase 초기화 성공');
         return true;
+
     } catch (error) {
         console.error('Firebase 초기화 실패:', error);
+        if (error.code === 'auth/api-key-not-valid') {
+            alert('Firebase API 키가 유효하지 않습니다. 관리자에게 문의하세요.');
+        } else {
+            alert('데이터베이스 연결에 실패했습니다.');
+        }
         return false;
     }
 }
@@ -200,20 +218,21 @@ async function loadTransactions() {
             }
         }
 
-        // 인증 상태 확인
-        if (!auth.currentUser) {
-            await new Promise((resolve) => {
-                auth.onAuthStateChanged((user) => {
-                    if (user) resolve();
-                });
-            });
-        }
-
         console.log('거래내역 로딩 시작');
         
         const snapshot = await db.collection('transactions')
             .orderBy('timestamp', 'desc')
-            .get();
+            .get()
+            .catch(error => {
+                console.error('Firestore 쿼리 오류:', error);
+                throw error;
+            });
+
+        if (!snapshot) {
+            console.warn('데이터 스냅샷이 없습니다.');
+            transactions = [];
+            return;
+        }
 
         transactions = snapshot.docs.map(doc => ({
             id: doc.id,
@@ -236,12 +255,23 @@ async function loadTransactions() {
 function handleLoadError(error) {
     let message = '데이터를 불러오는 중 오류가 발생했습니다.';
     
-    if (error.code === 'permission-denied') {
-        message = '데이터베이스 접근 권한이 없습니다.';
-    } else if (error.code === 'unavailable') {
-        message = '데이터베이스 연결이 불안정합니다. 잠시 후 다시 시도해주세요.';
-    } else if (error.code === 'not-found') {
-        message = '데이터를 찾을 수 없습니다.';
+    if (error.code) {
+        switch (error.code) {
+            case 'permission-denied':
+                message = '데이터베이스 접근 권한이 없습니다.';
+                break;
+            case 'unavailable':
+                message = '데이터베이스 연결이 불안정합니다.';
+                break;
+            case 'not-found':
+                message = '데이터를 찾을 수 없습니다.';
+                break;
+            case 'auth/api-key-not-valid':
+                message = 'API 키가 유효하지 않습니다.';
+                break;
+            default:
+                message = `오류가 발생했습니다: ${error.code}`;
+        }
     }
     
     alert(message);
@@ -535,8 +565,10 @@ document.head.appendChild(style);
 // 페이지 크기 변경 이벤트 리스너
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-        await initializeFirebase();
-        await loadTransactions();
+        const initialized = await initializeFirebase();
+        if (initialized) {
+            await loadTransactions();
+        }
         
         const transactionForm = document.getElementById('transactionForm');
         if (transactionForm) {
@@ -733,4 +765,3 @@ function checkFileSize(file) {
         throw new Error(`파일 크기가 너무 큽니다. 20MB 이하의 파일만 업로드 가능합니다. (현재 크기: ${(file.size / (1024 * 1024)).toFixed(1)}MB)`);
     }
 }
-
