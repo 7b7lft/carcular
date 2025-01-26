@@ -5,8 +5,7 @@ const firebaseConfig = {
     projectId: "jangbu-2024",
     storageBucket: "jangbu-2024.appspot.com",
     messagingSenderId: "1098234887455",
-    appId: "1:1098234887455:web:c6b5c0d0b82e1c6c2a40e1",
-    measurementId: "G-MEASUREMENT_ID"
+    appId: "1:1098234887455:web:c6b5c0d0b82e1c6c2a40e1"
 };
 
 // 전역 변수
@@ -36,8 +35,7 @@ async function initializeFirebase() {
         db = firebase.firestore();
         db.settings({
             merge: true,  // 설정 병합 허용
-            experimentalForceLongPolling: true,
-            useFetchStreams: false
+            experimentalForceLongPolling: true  // 하나의 폴링 옵션만 사용
         });
 
         // Auth 초기화
@@ -49,7 +47,6 @@ async function initializeFirebase() {
             console.log('익명 인증 성공');
         } catch (authError) {
             console.warn('익명 인증 실패:', authError);
-            // 인증 실패해도 계속 진행
         }
 
         console.log('Firebase 초기화 성공');
@@ -57,11 +54,7 @@ async function initializeFirebase() {
 
     } catch (error) {
         console.error('Firebase 초기화 실패:', error);
-        if (error.code === 'auth/api-key-not-valid') {
-            alert('Firebase API 키가 유효하지 않습니다. 관리자에게 문의하세요.');
-        } else {
-            alert('데이터베이스 연결에 실패했습니다.');
-        }
+        alert('데이터베이스 연결에 실패했습니다.');
         return false;
     }
 }
@@ -210,29 +203,17 @@ function getFilteredTransactions() {
 
 // 거래내역 로드 함수
 async function loadTransactions() {
-    try {
-        if (!db) {
-            const initialized = await initializeFirebase();
-            if (!initialized) {
-                throw new Error('데이터베이스 초기화 실패');
-            }
-        }
+    if (!db) {
+        const initialized = await initializeFirebase();
+        if (!initialized) return;
+    }
 
+    try {
         console.log('거래내역 로딩 시작');
         
         const snapshot = await db.collection('transactions')
             .orderBy('timestamp', 'desc')
-            .get()
-            .catch(error => {
-                console.error('Firestore 쿼리 오류:', error);
-                throw error;
-            });
-
-        if (!snapshot) {
-            console.warn('데이터 스냅샷이 없습니다.');
-            transactions = [];
-            return;
-        }
+            .get();
 
         transactions = snapshot.docs.map(doc => ({
             id: doc.id,
@@ -262,12 +243,6 @@ function handleLoadError(error) {
                 break;
             case 'unavailable':
                 message = '데이터베이스 연결이 불안정합니다.';
-                break;
-            case 'not-found':
-                message = '데이터를 찾을 수 없습니다.';
-                break;
-            case 'auth/api-key-not-valid':
-                message = 'API 키가 유효하지 않습니다.';
                 break;
             default:
                 message = `오류가 발생했습니다: ${error.code}`;
@@ -565,10 +540,8 @@ document.head.appendChild(style);
 // 페이지 크기 변경 이벤트 리스너
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-        const initialized = await initializeFirebase();
-        if (initialized) {
-            await loadTransactions();
-        }
+        await initializeFirebase();
+        await loadTransactions();
         
         const transactionForm = document.getElementById('transactionForm');
         if (transactionForm) {
