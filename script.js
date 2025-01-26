@@ -264,8 +264,11 @@ function getFilteredTransactions() {
     const monthFilter = document.getElementById('monthFilter').value;
     
     return transactions.filter(transaction => {
-        const transactionYear = transaction.date.substring(0, 4);
-        const transactionMonth = transaction.date.substring(5, 7);
+        if (!transaction.date) return false;
+        
+        const transactionDate = new Date(transaction.date);
+        const transactionYear = transactionDate.getFullYear().toString();
+        const transactionMonth = (transactionDate.getMonth() + 1).toString().padStart(2, '0');
         
         if (yearFilter && transactionYear !== yearFilter) return false;
         if (monthFilter && transactionMonth !== monthFilter) return false;
@@ -279,10 +282,15 @@ function setupYearFilter() {
     const yearFilter = document.getElementById('yearFilter');
     if (!yearFilter) return;
 
-    const years = new Set(transactions.map(t => t.date.substring(0, 4)));
-    const sortedYears = Array.from(years).sort((a, b) => b - a);
-    
     const currentValue = yearFilter.value; // 현재 선택된 값 저장
+    
+    // 유효한 날짜가 있는 거래 내역에서만 년도 추출
+    const years = new Set(
+        transactions
+            .filter(t => t.date)
+            .map(t => new Date(t.date).getFullYear().toString())
+    );
+    const sortedYears = Array.from(years).sort((a, b) => b - a);
     
     yearFilter.innerHTML = '<option value="">전체 년도</option>';
     sortedYears.forEach(year => {
@@ -290,6 +298,24 @@ function setupYearFilter() {
     });
     
     yearFilter.value = currentValue; // 이전 선택값 복원
+}
+
+// 월 필터 초기화 함수 추가
+function setupMonthFilter() {
+    const monthFilter = document.getElementById('monthFilter');
+    if (!monthFilter) return;
+
+    const currentValue = monthFilter.value; // 현재 선택된 값 저장
+    
+    monthFilter.innerHTML = `
+        <option value="">전체 월</option>
+        ${Array.from({length: 12}, (_, i) => {
+            const month = (i + 1).toString().padStart(2, '0');
+            return `<option value="${month}">${i + 1}월</option>`;
+        }).join('')}
+    `;
+    
+    monthFilter.value = currentValue; // 이전 선택값 복원
 }
 
 // updateUI 함수 수정
@@ -407,12 +433,13 @@ function updateUI() {
         totalExpense.textContent = formatCurrency(expense);
     }
     
-    // 년도 필터 옵션 업데이트 후 필터 값 복원
+    // 필터 옵션 업데이트
     setupYearFilter();
+    setupMonthFilter();
     restoreFilterValues();
 }
 
-// 이벤트 리스너 설정
+// 이벤트 리스너 설정 수정
 document.addEventListener('DOMContentLoaded', () => {
     editModal = new bootstrap.Modal(document.getElementById('editModal'));
     
@@ -423,6 +450,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (yearFilter && monthFilter) {
         yearFilter.addEventListener('change', handleFilterChange);
         monthFilter.addEventListener('change', handleFilterChange);
+        
+        // 초기 필터 설정
+        setupMonthFilter();
     }
     
     loadTransactions();
