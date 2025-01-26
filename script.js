@@ -400,27 +400,29 @@ function updateUI() {
                             </div>
                         </div>
                         <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div class="description-amount">
                                 <div class="description">${transaction.description}</div>
                                 <div class="amount text-${transaction.type === '수입' ? 'success' : 'danger'} fw-bold">
                                     ${formatCurrency(transaction.amount)}
                                 </div>
                             </div>
-                            ${transaction.receiptData ? `
-                                <div class="receipt-image mb-2">
-                                    <img src="${transaction.receiptData}" 
-                                         alt="영수증" 
-                                         class="receipt-thumbnail-mobile" 
-                                         onclick="showReceiptModal('${transaction.receiptData}')">
+                            <div class="d-flex justify-content-between align-items-center">
+                                ${transaction.receiptData ? `
+                                    <div class="receipt-image">
+                                        <img src="${transaction.receiptData}" 
+                                             alt="영수증" 
+                                             class="receipt-thumbnail-mobile" 
+                                             onclick="showReceiptModal('${transaction.receiptData}')">
+                                    </div>
+                                ` : '<div></div>'}
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-edit btn-sm" onclick="editTransaction('${transaction.id}')">
+                                        <i class="bi bi-pencil-square"></i> 수정
+                                    </button>
+                                    <button class="btn btn-danger btn-sm" onclick="deleteTransaction('${transaction.id}')">
+                                        <i class="bi bi-trash3-fill"></i> 삭제
+                                    </button>
                                 </div>
-                            ` : ''}
-                            <div class="d-flex gap-2 justify-content-end">
-                                <button class="btn btn-edit btn-sm" onclick="editTransaction('${transaction.id}')">
-                                    <i class="bi bi-pencil-square"></i> 수정
-                                </button>
-                                <button class="btn btn-danger btn-sm" onclick="deleteTransaction('${transaction.id}')">
-                                    <i class="bi bi-trash3-fill"></i> 삭제
-                                </button>
                             </div>
                         </div>
                     </div>
