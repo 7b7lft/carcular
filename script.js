@@ -1,26 +1,24 @@
 // Firebase 초기화 및 데이터베이스 참조
 const firebaseConfig = {
-    apiKey: "AIzaSyAI-KtaTqmmxXQm0XRgRu9GIsVmWaJTTDI",
-    authDomain: "carcular-c2b26.firebaseapp.com",
-    projectId: "carcular-c2b26",
-    storageBucket: "carcular-c2b26.firebasestorage.app",
-    messagingSenderId: "159197763518",
-    appId: "1:159197763518:web:599c178c8b25d255e9cbef",
-    measurementId: "G-YBWK7K8L5E"
+    apiKey: "your-api-key",
+    authDomain: "your-auth-domain",
+    projectId: "your-project-id",
+    storageBucket: "your-storage-bucket",
+    messagingSenderId: "your-messaging-sender-id",
+    appId: "your-app-id"
 };
 
 // Firebase 초기화 확인
-if (!firebase.apps.length) {
-    try {
+try {
+    if (!firebase.apps.length) {
         firebase.initializeApp(firebaseConfig);
-        console.log('Firebase 초기화 성공');
-    } catch (error) {
-        console.error('Firebase 초기화 실패:', error);
     }
+    const db = firebase.firestore();
+    console.log('Firebase 초기화 성공');
+} catch (error) {
+    console.error('Firebase 초기화 실패:', error);
+    alert('데이터베이스 연결에 실패했습니다. 페이지를 새로고침해주세요.');
 }
-
-// Firestore 데이터베이스 참조
-const db = firebase.firestore();
 
 // 전역 변수
 let transactions = [];
@@ -132,21 +130,55 @@ function checkFileSize(file) {
 
 // loadTransactions 함수 수정
 async function loadTransactions() {
-    console.log('거래내역 로딩 시작'); // 디버깅 로그
     try {
-        const snapshot = await db.collection('transactions').get();
-        console.log('Firestore 쿼리 결과:', snapshot.size); // 디버깅 로그
+        // 데이터베이스 연결 확인
+        if (!db) {
+            throw new Error('데이터베이스 연결이 설정되지 않았습니다.');
+        }
 
+        console.log('거래내역 로딩 시작');
+        
+        // 거래내역 가져오기
+        const snapshot = await db.collection('transactions')
+            .orderBy('timestamp', 'desc')
+            .get();
+
+        // 데이터 변환 및 저장
         transactions = snapshot.docs.map(doc => ({
             id: doc.id,
-            ...doc.data()
+            ...doc.data(),
+            // timestamp를 Date 객체로 변환
+            timestamp: doc.data().timestamp ? doc.data().timestamp.toDate() : new Date()
         }));
 
-        console.log('로드된 거래내역:', transactions.length); // 디버깩 로그
+        console.log(`${transactions.length}개의 거래내역을 성공적으로 로드했습니다.`);
+        
+        // UI 업데이트
         updateUI();
+        
     } catch (error) {
-        console.error('거래내역 로딩 중 오류:', error);
-        alert('거래내역을 불러오는데 실패했습니다.');
+        console.error('거래내역 로딩 중 오류 발생:', error);
+        
+        // 사용자에게 더 자세한 에러 메시지 표시
+        let errorMessage = '거래내역을 불러오는데 실패했습니다.';
+        if (error.code) {
+            switch (error.code) {
+                case 'permission-denied':
+                    errorMessage += '\n권한이 없습니다.';
+                    break;
+                case 'unavailable':
+                    errorMessage += '\n데이터베이스에 연결할 수 없습니다.';
+                    break;
+                default:
+                    errorMessage += `\n오류 코드: ${error.code}`;
+            }
+        }
+        
+        alert(errorMessage);
+        
+        // 빈 배열로 초기화하여 UI는 계속 작동하도록 함
+        transactions = [];
+        updateUI();
     }
 }
 
