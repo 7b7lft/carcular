@@ -348,142 +348,35 @@ function setupMonthFilter() {
     monthFilter.value = currentValue; // 이전 선택값 복원
 }
 
-// updateUI 함수 수정
-function updateUI() {
-    const desktopList = document.getElementById('desktopTransactionList');
-    const mobileList = document.getElementById('mobileTransactionList');
-    const totalBalance = document.getElementById('totalBalance');
-    const totalIncome = document.getElementById('totalIncome');
-    const totalExpense = document.getElementById('totalExpense');
-    const totalItemsSpan = document.getElementById('totalItems');
-    
-    if (!desktopList || !mobileList) {
-        console.error('Transaction list elements not found');
-        return;
-    }
+// 현재 스크롤 위치 저장 변수
+let lastScrollPosition = 0;
 
-    // 필터링된 거래 내역 가져오기
-    const filteredTransactions = getFilteredTransactions();
-    filteredTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-    // 총 아이템 수 표시
-    totalItemsSpan.textContent = filteredTransactions.length;
-
-    // 페이지네이션 계산
-    const totalPages = Math.ceil(filteredTransactions.length / pageSize);
-    const startIndex = (currentPage - 1) * pageSize;
-    const endIndex = Math.min(startIndex + pageSize, filteredTransactions.length);
-    const currentTransactions = filteredTransactions.slice(startIndex, endIndex);
-
-    // 페이지네이션 UI 업데이트
-    updatePagination(totalPages);
-
-    if (currentTransactions.length === 0) {
-        const emptyMessage = `
-            <div class="text-center py-4 text-muted">
-                <i class="bi bi-inbox fs-2 mb-2"></i>
-                <p class="mb-0">내역이 없습니다</p>
-            </div>
-        `;
-        desktopList.innerHTML = `<tr><td colspan="6">${emptyMessage}</td></tr>`;
-        mobileList.innerHTML = emptyMessage;
-    } else {
-        // 모바일용 카드 UI
-        mobileList.innerHTML = `
-            <div class="transaction-cards">
-                ${currentTransactions.map(transaction => `
-                    <div class="transaction-card">
-                        <div class="card-header">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="date">${transaction.date}</span>
-                                <span class="badge ${transaction.type === '수입' ? 'bg-success' : 'bg-danger'}">${transaction.type}</span>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <div class="description-amount">
-                                <div class="description">${transaction.description}</div>
-                                <div class="amount text-${transaction.type === '수입' ? 'success' : 'danger'} fw-bold">
-                                    ${formatCurrency(transaction.amount)}
-                                </div>
-                            </div>
-                            <div class="d-flex justify-content-between align-items-center">
-                                ${transaction.receiptData ? `
-                                    <div class="receipt-image">
-                                        <img src="${transaction.receiptData}" 
-                                             alt="영수증" 
-                                             class="receipt-thumbnail-mobile" 
-                                             onclick="showReceiptModal('${transaction.receiptData}')">
-                                    </div>
-                                ` : '<div></div>'}
-                                <div class="d-flex gap-2">
-                                    <button class="btn btn-edit btn-sm" onclick="editTransaction('${transaction.id}')">
-                                        <i class="bi bi-pencil-square"></i> 수정
-                                    </button>
-                                    <button class="btn btn-danger btn-sm" onclick="deleteTransaction('${transaction.id}')">
-                                        <i class="bi bi-trash3-fill"></i> 삭제
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-
-        // 데스크톱용 테이블 UI
-        desktopList.innerHTML = currentTransactions.map(transaction => `
-            <tr>
-                <td class="date-cell">${transaction.date}</td>
-                <td class="type-cell"><span class="badge ${transaction.type === '수입' ? 'bg-success' : 'bg-danger'}">${transaction.type}</span></td>
-                <td class="desc-cell">${transaction.description}</td>
-                <td class="amount-cell text-${transaction.type === '수입' ? 'success' : 'danger'}">${formatCurrency(transaction.amount)}</td>
-                <td class="receipt-cell">
-                    ${transaction.receiptData ? 
-                        `<img src="${transaction.receiptData}" 
-                             alt="영수증" 
-                             class="receipt-thumbnail" 
-                             onclick="showReceiptModal('${transaction.receiptData}')"
-                             style="cursor: pointer;">` : 
-                        '-'}
-                </td>
-                <td class="action-cell">
-                    <div class="d-flex gap-1 action-buttons">
-                        <button class="btn btn-edit btn-sm" onclick="editTransaction('${transaction.id}')" title="수정">
-                            <i class="bi bi-pencil-square me-1"></i>수정
-                        </button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteTransaction('${transaction.id}')" title="삭제">
-                            <i class="bi bi-trash3-fill me-1"></i>삭제
-                        </button>
-                    </div>
-                </td>
-            </tr>
-        `).join('');
-    }
-
-    // 합계 계산 및 표시
-    if (totalBalance && totalIncome && totalExpense) {
-        const income = currentTransactions
-            .filter(transaction => transaction.type === '수입')
-            .reduce((total, transaction) => total + transaction.amount, 0);
-
-        const expense = currentTransactions
-            .filter(transaction => transaction.type === '지출')
-            .reduce((total, transaction) => total + transaction.amount, 0);
-
-        const balance = income - expense;
-
-        totalBalance.textContent = formatCurrency(balance);
-        totalIncome.textContent = formatCurrency(income);
-        totalExpense.textContent = formatCurrency(expense);
+// 페이지 변경 함수 수정
+function changePage(newPage, event) {
+    if (event) {
+        event.preventDefault(); // 기본 동작 방지
     }
     
-    // 필터 옵션 업데이트
-    setupYearFilter();
-    setupMonthFilter();
-    restoreFilterValues();
+    // 현재 스크롤 위치 저장
+    lastScrollPosition = window.scrollY;
+    
+    const totalPages = Math.ceil(getFilteredTransactions().length / pageSize);
+    
+    if (newPage < 1 || newPage > totalPages) return;
+    
+    currentPage = newPage;
+    updateUI();
+    
+    // 이전 스크롤 위치로 복원
+    setTimeout(() => {
+        window.scrollTo({
+            top: lastScrollPosition,
+            behavior: 'instant' // 부드러운 스크롤 대신 즉시 이동
+        });
+    }, 0);
 }
 
-// 페이지네이션 UI 업데이트 함수
+// 페이지네이션 UI 업데이트 함수 수정
 function updatePagination(totalPages) {
     const pagination = document.getElementById('pagination');
     if (!pagination) return;
@@ -493,7 +386,7 @@ function updatePagination(totalPages) {
     // 이전 페이지 버튼
     paginationHTML += `
         <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
-            <a class="page-link" href="#" onclick="changePage(${currentPage - 1})" aria-label="이전">
+            <a class="page-link" href="#" onclick="changePage(${currentPage - 1}, event)" aria-label="이전">
                 <span aria-hidden="true">&laquo;</span>
             </a>
         </li>
@@ -501,22 +394,20 @@ function updatePagination(totalPages) {
 
     // 페이지 번호 버튼
     for (let i = 1; i <= totalPages; i++) {
-        // 현재 페이지 주변의 페이지만 표시
         if (
-            i === 1 || // 첫 페이지
-            i === totalPages || // 마지막 페이지
-            (i >= currentPage - 2 && i <= currentPage + 2) // 현재 페이지 주변
+            i === 1 || 
+            i === totalPages || 
+            (i >= currentPage - 2 && i <= currentPage + 2)
         ) {
             paginationHTML += `
                 <li class="page-item ${i === currentPage ? 'active' : ''}">
-                    <a class="page-link" href="#" onclick="changePage(${i})">${i}</a>
+                    <a class="page-link" href="#" onclick="changePage(${i}, event)">${i}</a>
                 </li>
             `;
         } else if (
             i === currentPage - 3 ||
             i === currentPage + 3
         ) {
-            // 생략 부호 추가
             paginationHTML += `
                 <li class="page-item disabled">
                     <span class="page-link">...</span>
@@ -528,7 +419,7 @@ function updatePagination(totalPages) {
     // 다음 페이지 버튼
     paginationHTML += `
         <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
-            <a class="page-link" href="#" onclick="changePage(${currentPage + 1})" aria-label="다음">
+            <a class="page-link" href="#" onclick="changePage(${currentPage + 1}, event)" aria-label="다음">
                 <span aria-hidden="true">&raquo;</span>
             </a>
         </li>
@@ -537,15 +428,31 @@ function updatePagination(totalPages) {
     pagination.innerHTML = paginationHTML;
 }
 
-// 페이지 변경 함수
-function changePage(newPage) {
-    const totalPages = Math.ceil(getFilteredTransactions().length / pageSize);
-    
-    if (newPage < 1 || newPage > totalPages) return;
-    
-    currentPage = newPage;
-    updateUI();
-}
+// CSS 스타일 추가를 위한 스타일 태그 생성
+const style = document.createElement('style');
+style.textContent = `
+    .pagination {
+        position: sticky;
+        bottom: 1rem;
+        background: white;
+        padding: 0.5rem;
+        border-radius: 0.25rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        z-index: 1000;
+    }
+
+    @media (max-width: 768px) {
+        .pagination {
+            justify-content: center;
+            margin-top: 1rem;
+        }
+        
+        .pagination .page-link {
+            padding: 0.375rem 0.75rem;
+        }
+    }
+`;
+document.head.appendChild(style);
 
 // 페이지 크기 변경 이벤트 리스너
 document.addEventListener('DOMContentLoaded', () => {
