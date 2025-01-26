@@ -133,7 +133,7 @@ async function addTransaction(e) {
             date: document.getElementById('date').value,
             type: document.getElementById('type').value,
             description: document.getElementById('description').value,
-            amount: parseFloat(document.getElementById('amount').value),
+            amount: parseInt(document.getElementById('amount').value.replace(/,/g, '')),
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
         };
 
@@ -157,38 +157,30 @@ async function addTransaction(e) {
             }
         }
 
-        if (editingId) {
-            // 수정 모드
-            const existingTransaction = transactions.find(t => t.id === editingId);
-            
-            if (!receiptFile && existingTransaction.receiptData) {
-                transaction.receiptData = existingTransaction.receiptData;
-            }
-
-            await db.collection('transactions').doc(editingId).update(transaction);
-            const index = transactions.findIndex(t => t.id === editingId);
-            transactions[index] = { ...transaction, id: editingId };
-            
-            cancelEdit();
-        } else {
-            // 추가 모드
-            const docRef = await db.collection('transactions').add(transaction);
-            transaction.id = docRef.id;
-            transactions.push(transaction);
-        }
+        // Firestore에 추가
+        const docRef = await db.collection('transactions').add(transaction);
+        transaction.id = docRef.id;
+        transactions.push(transaction);
 
         // 필터 초기화
+        currentYearFilter = '';
+        currentMonthFilter = '';
         document.getElementById('yearFilter').value = '';
         document.getElementById('monthFilter').value = '';
         
+        // UI 업데이트
         updateUI();
         e.target.reset();
+
+        // 성공 메시지
+        alert('거래 내역이 추가되었습니다.');
+
     } catch (error) {
         console.error("거래 처리 중 오류 발생:", error);
         alert(error.message || "거래를 처리하는 중 오류가 발생했습니다.");
     } finally {
         submitBtn.disabled = false;
-        submitBtn.innerHTML = editingId ? '수정' : '추가';
+        submitBtn.innerHTML = '추가';
     }
 }
 
@@ -469,8 +461,12 @@ window.addEventListener('resize', () => {
 
 // 숫자 입력 시 천단위 콤마 표시
 function formatAmount(input) {
-    let value = input.value.replace(/[^\d]/g, '');
+    // 숫자와 쉼표만 남기고 모두 제거
+    let value = input.value.replace(/[^\d,]/g, '');
+    // 쉼표 제거
+    value = value.replace(/,/g, '');
     if (value) {
+        // 숫자를 정수로 변환 후 천단위 쉼표 추가
         value = parseInt(value).toLocaleString('ko-KR');
         input.value = value;
     }
