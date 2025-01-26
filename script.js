@@ -8,34 +8,9 @@ const firebaseConfig = {
     appId: "1:1098234887455:web:c6b5c0d0b82e1c6c2a40e1"
 };
 
-// Firebase 초기화 및 Firestore 설정
+// 전역 변수
 let db;
-
-async function initializeFirebase() {
-    try {
-        // Firebase 앱이 이미 초기화되었는지 확인
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-        }
-        
-        db = firebase.firestore();
-        
-        // Firestore 설정
-        db.settings({
-            cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED,
-            experimentalForceLongPolling: true, // 연결 안정성 향상
-            merge: true // 데이터 병합 허용
-        });
-
-        console.log('Firebase 초기화 성공');
-        return true;
-    } catch (error) {
-        console.error('Firebase 초기화 실패:', error);
-        return false;
-    }
-}
-
-// 전역 변수 선언
+let auth;
 let transactions = [];
 let currentPage = 1;
 let pageSize = 10;
@@ -44,6 +19,34 @@ let currentYearFilter = '';
 let currentMonthFilter = '';
 let editModal = null;
 let isLoading = false;
+
+// Firebase 초기화 함수
+async function initializeFirebase() {
+    try {
+        // Firebase 앱이 이미 초기화되었는지 확인
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+
+        auth = firebase.auth();
+        db = firebase.firestore();
+
+        // Firestore 설정
+        db.settings({
+            experimentalForceLongPolling: true,
+            useFetchStreams: false
+        });
+
+        // 익명 인증 사용
+        await auth.signInAnonymously();
+
+        console.log('Firebase 초기화 성공');
+        return true;
+    } catch (error) {
+        console.error('Firebase 초기화 실패:', error);
+        return false;
+    }
+}
 
 // updateUI 함수를 먼저 정의
 function updateUI() {
@@ -187,158 +190,85 @@ function getFilteredTransactions() {
     });
 }
 
-// 데이터베이스 연결 확인
-async function checkDatabaseConnection() {
-    try {
-        await db.collection('transactions').get();
-        console.log('데이터베이스 연결 성공');
-        return true;
-    } catch (error) {
-        console.error('데이터베이스 연결 오류:', error);
-        alert('데이터베이스 연결에 실패했습니다. 페이지를 새로고침해주세요.');
-        return false;
-    }
-}
-
-// 필터 값 저장 함수
-function saveFilterValues() {
-    currentYearFilter = document.getElementById('yearFilter').value;
-    currentMonthFilter = document.getElementById('monthFilter').value;
-}
-
-// 필터 값 복원 함수
-function restoreFilterValues() {
-    const yearFilter = document.getElementById('yearFilter');
-    const monthFilter = document.getElementById('monthFilter');
-    
-    if (yearFilter && monthFilter) {
-        yearFilter.value = currentYearFilter;
-        monthFilter.value = currentMonthFilter;
-    }
-}
-
-// 필터 변경 이벤트 핸들러
-function handleFilterChange() {
-    currentPage = 1;
-    saveFilterValues();
-    updateUI();
-}
-
-// 이미지를 Base64로 변환
-function getBase64(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = error => reject(error);
-    });
-}
-
-// 이미지 최적화 함수 개선
-async function optimizeImage(file, maxWidth = 800) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const img = new Image();
-            img.onload = function() {
-                const canvas = document.createElement('canvas');
-                let width = img.width;
-                let height = img.height;
-
-                // 이미지 크기 조정
-                if (width > maxWidth) {
-                    height = Math.round((height * maxWidth) / width);
-                    width = maxWidth;
-                }
-
-                canvas.width = width;
-                canvas.height = height;
-
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
-
-                // 이미지 품질을 점진적으로 낮추며 최적화
-                let quality = 0.7;
-                let optimizedDataUrl;
-                let iteration = 0;
-                const maxIterations = 5;
-
-                do {
-                    optimizedDataUrl = canvas.toDataURL('image/jpeg', quality);
-                    quality -= 0.1;
-                    iteration++;
-                } while (optimizedDataUrl.length > 1024 * 1024 && iteration < maxIterations && quality > 0.1);
-
-                resolve(optimizedDataUrl);
-            };
-            img.onerror = reject;
-            img.src = e.target.result;
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
-}
-
-// 파일 크기 검사 함수
-function checkFileSize(file) {
-    const maxSize = 20 * 1024 * 1024; // 20MB
-    if (file.size > maxSize) {
-        throw new Error(`파일 크기가 너무 큽니다. 20MB 이하의 파일만 업로드 가능합니다. (현재 크기: ${(file.size / (1024 * 1024)).toFixed(1)}MB)`);
-    }
-}
-
-// 거래내역 로드 함수 수정
+// 거래내역 로드 함수
 async function loadTransactions() {
-    if (!db) {
-        const initialized = await initializeFirebase();
-        if (!initialized) {
-            alert('데이터베이스 연결에 실패했습니다.');
-            return;
-        }
-    }
-
     try {
+        if (!db) {
+            const initialized = await initializeFirebase();
+            if (!initialized) {
+                throw new Error('데이터베이스 초기화 실패');
+            }
+        }
+
+        // 인증 상태 확인
+        if (!auth.currentUser) {
+            await new Promise((resolve) => {
+                auth.onAuthStateChanged((user) => {
+                    if (user) resolve();
+                });
+            });
+        }
+
         console.log('거래내역 로딩 시작');
         
-        // 트랜잭션 컬렉션 참조
-        const transactionsRef = db.collection('transactions');
-        
-        // 데이터 가져오기 시도
-        const snapshot = await transactionsRef
+        const snapshot = await db.collection('transactions')
             .orderBy('timestamp', 'desc')
             .get();
 
-        if (snapshot.empty) {
-            console.log('거래내역이 없습니다.');
-            transactions = [];
-        } else {
-            transactions = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-                timestamp: doc.data().timestamp ? 
-                    new Date(doc.data().timestamp.seconds * 1000) : 
-                    new Date()
-            }));
-            console.log(`${transactions.length}개의 거래내역을 로드했습니다.`);
-        }
+        transactions = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            timestamp: doc.data().timestamp ? 
+                new Date(doc.data().timestamp.seconds * 1000) : 
+                new Date()
+        }));
 
+        console.log(`${transactions.length}개의 거래내역을 로드했습니다.`);
         updateUI();
 
     } catch (error) {
         console.error('거래내역 로딩 중 오류:', error);
-        
-        if (error.code === 'permission-denied') {
-            alert('데이터베이스 접근 권한이 없습니다.');
-        } else if (error.code === 'unavailable') {
-            alert('데이터베이스 연결이 불안정합니다. 잠시 후 다시 시도해주세요.');
-        } else {
-            alert('데이터를 불러오는 중 오류가 발생했습니다.');
-        }
-        
-        transactions = [];
-        updateUI();
+        handleLoadError(error);
     }
 }
+
+// 오류 처리 함수
+function handleLoadError(error) {
+    let message = '데이터를 불러오는 중 오류가 발생했습니다.';
+    
+    if (error.code === 'permission-denied') {
+        message = '데이터베이스 접근 권한이 없습니다.';
+    } else if (error.code === 'unavailable') {
+        message = '데이터베이스 연결이 불안정합니다. 잠시 후 다시 시도해주세요.';
+    } else if (error.code === 'not-found') {
+        message = '데이터를 찾을 수 없습니다.';
+    }
+    
+    alert(message);
+    transactions = [];
+    updateUI();
+}
+
+// 재연결 시도 함수
+async function retryConnection() {
+    try {
+        await db.terminate();
+        await initializeFirebase();
+        await loadTransactions();
+    } catch (error) {
+        console.error('재연결 시도 실패:', error);
+    }
+}
+
+// 네트워크 상태 모니터링
+window.addEventListener('online', () => {
+    console.log('온라인 상태 감지');
+    retryConnection();
+});
+
+window.addEventListener('offline', () => {
+    console.log('오프라인 상태 감지');
+});
 
 // 거래내역 추가 함수 수정
 async function addTransaction(e) {
@@ -604,36 +534,41 @@ document.head.appendChild(style);
 
 // 페이지 크기 변경 이벤트 리스너
 document.addEventListener('DOMContentLoaded', async () => {
-    await initializeFirebase();
-    await loadTransactions();
-    
-    const transactionForm = document.getElementById('transactionForm');
-    if (transactionForm) {
-        transactionForm.addEventListener('submit', addTransaction);
-    }
-    
-    // 페이지 크기 변경 이벤트 리스너
-    const pageSizeSelect = document.getElementById('pageSize');
-    if (pageSizeSelect) {
-        pageSizeSelect.addEventListener('change', (e) => {
-            pageSize = parseInt(e.target.value);
-            currentPage = 1;
-            updateUI();
-        });
-    }
-
-    editModal = new bootstrap.Modal(document.getElementById('editModal'));
-    
-    // 필터 변경 이벤트 리스너
-    const yearFilter = document.getElementById('yearFilter');
-    const monthFilter = document.getElementById('monthFilter');
-    
-    if (yearFilter && monthFilter) {
-        yearFilter.addEventListener('change', handleFilterChange);
-        monthFilter.addEventListener('change', handleFilterChange);
+    try {
+        await initializeFirebase();
+        await loadTransactions();
         
-        // 초기 필터 설정
-        setupMonthFilter();
+        const transactionForm = document.getElementById('transactionForm');
+        if (transactionForm) {
+            transactionForm.addEventListener('submit', addTransaction);
+        }
+        
+        // 페이지 크기 변경 이벤트 리스너
+        const pageSizeSelect = document.getElementById('pageSize');
+        if (pageSizeSelect) {
+            pageSizeSelect.addEventListener('change', (e) => {
+                pageSize = parseInt(e.target.value);
+                currentPage = 1;
+                updateUI();
+            });
+        }
+
+        editModal = new bootstrap.Modal(document.getElementById('editModal'));
+        
+        // 필터 변경 이벤트 리스너
+        const yearFilter = document.getElementById('yearFilter');
+        const monthFilter = document.getElementById('monthFilter');
+        
+        if (yearFilter && monthFilter) {
+            yearFilter.addEventListener('change', handleFilterChange);
+            monthFilter.addEventListener('change', handleFilterChange);
+            
+            // 초기 필터 설정
+            setupMonthFilter();
+        }
+    } catch (error) {
+        console.error('초기화 중 오류:', error);
+        handleLoadError(error);
     }
 });
 
@@ -711,3 +646,91 @@ async function saveEdit() {
         alert("수정 중 오류가 발생했습니다.");
     }
 }
+
+// 필터 값 저장 함수
+function saveFilterValues() {
+    currentYearFilter = document.getElementById('yearFilter').value;
+    currentMonthFilter = document.getElementById('monthFilter').value;
+}
+
+// 필터 값 복원 함수
+function restoreFilterValues() {
+    const yearFilter = document.getElementById('yearFilter');
+    const monthFilter = document.getElementById('monthFilter');
+    
+    if (yearFilter && monthFilter) {
+        yearFilter.value = currentYearFilter;
+        monthFilter.value = currentMonthFilter;
+    }
+}
+
+// 필터 변경 이벤트 핸들러
+function handleFilterChange() {
+    currentPage = 1;
+    saveFilterValues();
+    updateUI();
+}
+
+// 이미지를 Base64로 변환
+function getBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+    });
+}
+
+// 이미지 최적화 함수 개선
+async function optimizeImage(file, maxWidth = 800) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = new Image();
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+
+                // 이미지 크기 조정
+                if (width > maxWidth) {
+                    height = Math.round((height * maxWidth) / width);
+                    width = maxWidth;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // 이미지 품질을 점진적으로 낮추며 최적화
+                let quality = 0.7;
+                let optimizedDataUrl;
+                let iteration = 0;
+                const maxIterations = 5;
+
+                do {
+                    optimizedDataUrl = canvas.toDataURL('image/jpeg', quality);
+                    quality -= 0.1;
+                    iteration++;
+                } while (optimizedDataUrl.length > 1024 * 1024 && iteration < maxIterations && quality > 0.1);
+
+                resolve(optimizedDataUrl);
+            };
+            img.onerror = reject;
+            img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+}
+
+// 파일 크기 검사 함수
+function checkFileSize(file) {
+    const maxSize = 20 * 1024 * 1024; // 20MB
+    if (file.size > maxSize) {
+        throw new Error(`파일 크기가 너무 큽니다. 20MB 이하의 파일만 업로드 가능합니다. (현재 크기: ${(file.size / (1024 * 1024)).toFixed(1)}MB)`);
+    }
+}
+
