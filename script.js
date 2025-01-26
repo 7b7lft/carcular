@@ -9,8 +9,8 @@ const firebaseConfig = {
 };
 
 // 전역 변수
-let db;
-let auth;
+let db = null;
+let auth = null;
 let transactions = [];
 let currentPage = 1;
 let pageSize = 10;
@@ -19,51 +19,39 @@ let currentYearFilter = '';
 let currentMonthFilter = '';
 let editModal = null;
 let isLoading = false;
+let isInitializing = false;
 
 // Firebase 초기화 함수
 async function initializeFirebase() {
+    if (isInitializing) return null;
+    if (db) return db;
+    
+    isInitializing = true;
+    
     try {
-        // Firebase가 이미 초기화되었는지 확인
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-        } else {
-            firebase.app(); // 이미 초기화된 앱 사용
+        // 기존 앱이 있다면 제거
+        if (firebase.apps.length) {
+            firebase.app().delete();
         }
 
+        // Firebase 앱 초기화
+        firebase.initializeApp(firebaseConfig);
+        
         // Firestore 초기화
         db = firebase.firestore();
         
-        // CORS 및 보안 설정
-        db.settings({
-            ignoreUndefinedProperties: true,
-            merge: true
-        });
-
-        // Auth 초기화 및 익명 로그인
+        // Auth 초기화
         auth = firebase.auth();
-        if (!auth.currentUser) {
-            await auth.signInAnonymously();
-        }
-
-        // 데이터베이스 연결 테스트
-        await db.collection('transactions').limit(1).get();
         
         console.log('Firebase 초기화 성공');
-        return true;
-
+        return db;
     } catch (error) {
-        console.error('Firebase 초기화 상세 오류:', error);
-        
-        // 오류 유형에 따른 처리
-        if (error.code === 'auth/invalid-api-key') {
-            alert('API 키가 유효하지 않습니다.');
-        } else if (error.code === 'auth/network-request-failed') {
-            alert('네트워크 연결을 확인해주세요.');
-        } else {
-            alert('데이터베이스 연결에 실패했습니다. 잠시 후 다시 시도해주세요.');
-        }
-        
-        return false;
+        console.error('Firebase 초기화 오류:', error);
+        db = null;
+        auth = null;
+        return null;
+    } finally {
+        isInitializing = false;
     }
 }
 
@@ -210,15 +198,16 @@ function getFilteredTransactions() {
 }
 
 // 거래내역 로드 함수
-async function loadTransactions(retryCount = 0) {
-    try {
-        if (!db || !auth.currentUser) {
-            const initialized = await initializeFirebase();
-            if (!initialized) {
-                throw new Error('데이터베이스 초기화 실패');
-            }
+async function loadTransactions() {
+    if (!db) {
+        db = await initializeFirebase();
+        if (!db) {
+            console.error('데이터베이스 연결 실패');
+            return;
         }
+    }
 
+    try {
         console.log('거래내역 로딩 시작');
         
         const snapshot = await db.collection('transactions')
@@ -228,51 +217,19 @@ async function loadTransactions(retryCount = 0) {
         transactions = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data(),
-            timestamp: doc.data().timestamp ? 
-                new Date(doc.data().timestamp.seconds * 1000) : 
-                new Date()
+            timestamp: doc.data().timestamp?.toDate() || new Date()
         }));
 
         console.log(`${transactions.length}개의 거래내역을 로드했습니다.`);
         updateUI();
 
     } catch (error) {
-        console.error('거래내역 로딩 중 오류:', error);
-        
-        // 재시도 로직
-        if (retryCount < 3) {
-            console.log(`재시도 중... (${retryCount + 1}/3)`);
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            return loadTransactions(retryCount + 1);
-        }
-        
-        handleLoadError(error);
+        console.error('거래내역 로딩 오류:', error);
+        // 오류 발생 시 재시도하지 않음
     }
 }
 
-// 오류 처리 함수
-function handleLoadError(error) {
-    let message = '데이터를 불러오는 중 오류가 발생했습니다.';
-    
-    if (error.code) {
-        switch (error.code) {
-            case 'permission-denied':
-                message = '데이터베이스 접근 권한이 없습니다.';
-                break;
-            case 'unavailable':
-                message = '데이터베이스 연결이 불안정합니다.';
-                break;
-            default:
-                message = `오류가 발생했습니다: ${error.code}`;
-        }
-    }
-    
-    alert(message);
-    transactions = [];
-    updateUI();
-}
-
-// 거래내역 추가 함수 수정
+// 거래내역 추가 함수
 async function addTransaction(e) {
     e.preventDefault();
     
@@ -283,8 +240,7 @@ async function addTransaction(e) {
 
     const submitBtn = document.getElementById('submitBtn');
     submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> 처리중...';
-
+    
     try {
         const transaction = {
             date: document.getElementById('date').value,
@@ -294,33 +250,23 @@ async function addTransaction(e) {
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
         };
 
-        const receiptFile = document.getElementById('receipt').files[0];
-        if (receiptFile) {
-            const receiptData = await optimizeImage(receiptFile);
-            transaction.receiptData = receiptData;
-        }
-
         const docRef = await db.collection('transactions').add(transaction);
-        console.log('거래내역 추가 성공:', docRef.id);
-
-        // 로컬 배열에 추가
-        const newTransaction = {
+        
+        transactions.unshift({
             id: docRef.id,
             ...transaction,
             timestamp: new Date()
-        };
-        transactions.push(newTransaction);
+        });
 
         updateUI();
         e.target.reset();
         alert('거래내역이 추가되었습니다.');
 
     } catch (error) {
-        console.error('거래내역 추가 중 오류:', error);
+        console.error('거래내역 추가 오류:', error);
         alert('거래내역 추가에 실패했습니다.');
     } finally {
         submitBtn.disabled = false;
-        submitBtn.innerHTML = '추가';
     }
 }
 
@@ -537,8 +483,10 @@ document.head.appendChild(style);
 // 페이지 크기 변경 이벤트 리스너
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-        await initializeFirebase();
-        await loadTransactions();
+        db = await initializeFirebase();
+        if (db) {
+            await loadTransactions();
+        }
         
         const transactionForm = document.getElementById('transactionForm');
         if (transactionForm) {
