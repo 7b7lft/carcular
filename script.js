@@ -1,4 +1,4 @@
-// Firebase 초기화
+// Firebase 초기화 및 데이터베이스 참조
 const firebaseConfig = {
     apiKey: "AIzaSyAI-KtaTqmmxXQm0XRgRu9GIsVmWaJTTDI",
     authDomain: "carcular-c2b26.firebaseapp.com",
@@ -9,16 +9,34 @@ const firebaseConfig = {
     measurementId: "G-YBWK7K8L5E"
 };
 
-// Firebase 초기화 및 설정
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-let transactions = [];
-let editingId = null;
-let editModal = null;
+// Firebase 초기화
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
 
-// 현재 필터 값을 저장할 전역 변수
+// Firestore 데이터베이스 참조 생성
+const db = firebase.firestore();
+
+// 전역 변수
+let transactions = [];
 let currentYearFilter = '';
 let currentMonthFilter = '';
+let editModal = null;
+let currentPage = 1;
+let pageSize = 10;
+
+// 데이터베이스 연결 확인
+async function checkDatabaseConnection() {
+    try {
+        await db.collection('transactions').get();
+        console.log('데이터베이스 연결 성공');
+        return true;
+    } catch (error) {
+        console.error('데이터베이스 연결 오류:', error);
+        alert('데이터베이스 연결에 실패했습니다. 페이지를 새로고침해주세요.');
+        return false;
+    }
+}
 
 // 필터 값 저장 함수
 function saveFilterValues() {
@@ -39,6 +57,7 @@ function restoreFilterValues() {
 
 // 필터 변경 이벤트 핸들러
 function handleFilterChange() {
+    currentPage = 1;
     saveFilterValues();
     updateUI();
 }
@@ -106,14 +125,20 @@ function checkFileSize(file) {
     }
 }
 
-// Firestore에서 데이터 가져오기
+// loadTransactions 함수 수정
 async function loadTransactions() {
     try {
+        // 데이터베이스 연결 확인
+        if (!await checkDatabaseConnection()) {
+            return;
+        }
+
         const snapshot = await db.collection('transactions').get();
         transactions = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data()
         }));
+        console.log('거래 내역 로드됨:', transactions.length, '건');
         updateUI();
     } catch (error) {
         console.error("거래 내역을 불러오는 중 오류 발생:", error);
@@ -121,39 +146,46 @@ async function loadTransactions() {
     }
 }
 
-// 거래 추가/수정
+// addTransaction 함수 수정
 async function addTransaction(e) {
     e.preventDefault();
 
     const submitBtn = document.getElementById('submitBtn');
     
     try {
+        // 데이터베이스 연결 확인
+        if (!await checkDatabaseConnection()) {
+            return;
+        }
+
         submitBtn.disabled = true;
         submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 처리중...';
         
-        const receiptFile = document.getElementById('receipt').files[0];
-        let receiptData = null;
-        
-        // 금액 입력값에서 쉼표 제거 후 정수 변환
+        // 입력값 검증
+        const date = document.getElementById('date').value;
+        const type = document.getElementById('type').value;
+        const description = document.getElementById('description').value;
         const amountValue = document.getElementById('amount').value.replace(/,/g, '');
-        
+
+        if (!date || !type || !description || !amountValue) {
+            throw new Error('모든 필수 항목을 입력해주세요.');
+        }
+
         const transaction = {
-            date: document.getElementById('date').value,
-            type: document.getElementById('type').value,
-            description: document.getElementById('description').value,
+            date,
+            type,
+            description,
             amount: parseInt(amountValue),
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
         };
 
+        console.log('추가할 거래 내역:', transaction); // 디버깅용
+
+        const receiptFile = document.getElementById('receipt').files[0];
         if (receiptFile) {
             try {
                 checkFileSize(receiptFile);
-                receiptData = await optimizeImage(receiptFile);
-                
-                if (receiptData.length > 1024 * 1024) {
-                    receiptData = await optimizeImage(receiptFile, 600);
-                }
-                
+                const receiptData = await optimizeImage(receiptFile);
                 transaction.receiptData = receiptData;
             } catch (error) {
                 alert(error.message || "이미지 처리 중 오류가 발생했습니다.");
@@ -163,8 +195,9 @@ async function addTransaction(e) {
 
         // Firestore에 추가
         const docRef = await db.collection('transactions').add(transaction);
-        
-        // 새로운 거래 내역을 transactions 배열에 추가
+        console.log('Firestore에 추가됨, ID:', docRef.id); // 디버깅용
+
+        // 로컬 배열에 추가
         const newTransaction = {
             id: docRef.id,
             ...transaction
@@ -174,14 +207,15 @@ async function addTransaction(e) {
         // 필터 초기화
         currentYearFilter = '';
         currentMonthFilter = '';
-        document.getElementById('yearFilter').value = '';
-        document.getElementById('monthFilter').value = '';
+        const yearFilter = document.getElementById('yearFilter');
+        const monthFilter = document.getElementById('monthFilter');
+        if (yearFilter) yearFilter.value = '';
+        if (monthFilter) monthFilter.value = '';
         
         // UI 업데이트
         updateUI();
         e.target.reset();
 
-        // 성공 메시지
         alert('거래 내역이 추가되었습니다.');
 
     } catch (error) {
@@ -326,7 +360,8 @@ function updateUI() {
     const totalBalance = document.getElementById('totalBalance');
     const totalIncome = document.getElementById('totalIncome');
     const totalExpense = document.getElementById('totalExpense');
-
+    const totalItemsSpan = document.getElementById('totalItems');
+    
     if (!desktopList || !mobileList) {
         console.error('Transaction list elements not found');
         return;
@@ -336,21 +371,32 @@ function updateUI() {
     const filteredTransactions = getFilteredTransactions();
     filteredTransactions.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    if (filteredTransactions.length === 0) {
+    // 총 아이템 수 표시
+    totalItemsSpan.textContent = filteredTransactions.length;
+
+    // 페이지네이션 계산
+    const totalPages = Math.ceil(filteredTransactions.length / pageSize);
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = Math.min(startIndex + pageSize, filteredTransactions.length);
+    const currentTransactions = filteredTransactions.slice(startIndex, endIndex);
+
+    // 페이지네이션 UI 업데이트
+    updatePagination(totalPages);
+
+    if (currentTransactions.length === 0) {
         const emptyMessage = `
             <div class="text-center py-4 text-muted">
                 <i class="bi bi-inbox fs-2 mb-2"></i>
                 <p class="mb-0">내역이 없습니다</p>
             </div>
         `;
-        
         desktopList.innerHTML = `<tr><td colspan="6">${emptyMessage}</td></tr>`;
         mobileList.innerHTML = emptyMessage;
     } else {
         // 모바일용 카드 UI
         mobileList.innerHTML = `
             <div class="transaction-cards">
-                ${filteredTransactions.map(transaction => `
+                ${currentTransactions.map(transaction => `
                     <div class="transaction-card">
                         <div class="card-header">
                             <div class="d-flex justify-content-between align-items-center">
@@ -388,7 +434,7 @@ function updateUI() {
         `;
 
         // 데스크톱용 테이블 UI
-        desktopList.innerHTML = filteredTransactions.map(transaction => `
+        desktopList.innerHTML = currentTransactions.map(transaction => `
             <tr>
                 <td class="date-cell">${transaction.date}</td>
                 <td class="type-cell"><span class="badge ${transaction.type === '수입' ? 'bg-success' : 'bg-danger'}">${transaction.type}</span></td>
@@ -419,11 +465,11 @@ function updateUI() {
 
     // 합계 계산 및 표시
     if (totalBalance && totalIncome && totalExpense) {
-        const income = filteredTransactions
+        const income = currentTransactions
             .filter(transaction => transaction.type === '수입')
             .reduce((total, transaction) => total + transaction.amount, 0);
 
-        const expense = filteredTransactions
+        const expense = currentTransactions
             .filter(transaction => transaction.type === '지출')
             .reduce((total, transaction) => total + transaction.amount, 0);
 
@@ -440,7 +486,71 @@ function updateUI() {
     restoreFilterValues();
 }
 
-// 이벤트 리스너 설정 수정
+// 페이지네이션 UI 업데이트 함수
+function updatePagination(totalPages) {
+    const pagination = document.getElementById('pagination');
+    if (!pagination) return;
+
+    let paginationHTML = '';
+
+    // 이전 페이지 버튼
+    paginationHTML += `
+        <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="changePage(${currentPage - 1})" aria-label="이전">
+                <span aria-hidden="true">&laquo;</span>
+            </a>
+        </li>
+    `;
+
+    // 페이지 번호 버튼
+    for (let i = 1; i <= totalPages; i++) {
+        // 현재 페이지 주변의 페이지만 표시
+        if (
+            i === 1 || // 첫 페이지
+            i === totalPages || // 마지막 페이지
+            (i >= currentPage - 2 && i <= currentPage + 2) // 현재 페이지 주변
+        ) {
+            paginationHTML += `
+                <li class="page-item ${i === currentPage ? 'active' : ''}">
+                    <a class="page-link" href="#" onclick="changePage(${i})">${i}</a>
+                </li>
+            `;
+        } else if (
+            i === currentPage - 3 ||
+            i === currentPage + 3
+        ) {
+            // 생략 부호 추가
+            paginationHTML += `
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+            `;
+        }
+    }
+
+    // 다음 페이지 버튼
+    paginationHTML += `
+        <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="changePage(${currentPage + 1})" aria-label="다음">
+                <span aria-hidden="true">&raquo;</span>
+            </a>
+        </li>
+    `;
+
+    pagination.innerHTML = paginationHTML;
+}
+
+// 페이지 변경 함수
+function changePage(newPage) {
+    const totalPages = Math.ceil(getFilteredTransactions().length / pageSize);
+    
+    if (newPage < 1 || newPage > totalPages) return;
+    
+    currentPage = newPage;
+    updateUI();
+}
+
+// 페이지 크기 변경 이벤트 리스너
 document.addEventListener('DOMContentLoaded', () => {
     editModal = new bootstrap.Modal(document.getElementById('editModal'));
     
@@ -457,6 +567,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     loadTransactions();
+
+    const pageSizeSelect = document.getElementById('pageSize');
+    if (pageSizeSelect) {
+        pageSizeSelect.addEventListener('change', (e) => {
+            pageSize = parseInt(e.target.value);
+            currentPage = 1; // 페이지 크기 변경 시 첫 페이지로 이동
+            updateUI();
+        });
+    }
 });
 
 // resize 이벤트 핸들러 수정
